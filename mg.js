@@ -1,6 +1,6 @@
 const API_URL = "https://api.ikunshare.com";
 const API_KEY = "YOUR_KEY";
-const UPDATE_URL = "https://api.ikunshare.com/script/mg?key=YOUR_KEY";
+const UPDATE_URL = "https://musicfree.3kddyys.workers.dev/plugin/mg.js?key=YOUR_KEY";
 
 // 转换字节为可读格式
 function sizeFormate(size) {

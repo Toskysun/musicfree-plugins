@@ -1,6 +1,6 @@
 const API_URL = "https://api.ikunshare.com";
 const API_KEY = "YOUR_KEY";
-const UPDATE_URL = "https://api.ikunshare.com/script/kg?key=YOUR_KEY";
+const UPDATE_URL = "https://musicfree.3kddyys.workers.dev/plugin/kg.js?key=YOUR_KEY";
 
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
