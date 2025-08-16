@@ -664,15 +664,19 @@ async function getMediaSource(musicItem, quality) {
       }
     }
     
-    // 映射音质参数
+    // 映射音质参数 - 支持所有酷我音质等级
     const qualityMap = {
-      '128k': '128',
-      '320k': '320',
+      '128k': '128k',
+      '320k': '320k',
       'flac': 'flac',
-      'flac24bit': 'flac24bit'
+      'flac24bit': 'flac24bit',
+      'hires': 'hires',
+      'atmos': 'atmos',
+      'atmos_plus': 'atmos_plus',
+      'master': 'master'
     };
     
-    const qualityParam = qualityMap[quality] || '320';
+    const qualityParam = qualityMap[quality] || '320k';
     
     // 尝试使用API获取播放链接
     try {
@@ -691,55 +695,20 @@ async function getMediaSource(musicItem, quality) {
       
       if (res.code === 200 && res.url) {
         console.log(`[酷我] 成功获取播放链接`);
-        return {
+        // 如果有ekey，将其包含在返回结果中（用于解密mflac）
+        const result = {
           url: res.url
         };
+        
+        if (res.ekey) {
+          result.ekey = res.ekey;
+          console.log(`[酷我] 包含解密密钥ekey`);
+        }
+        
+        return result;
       }
     } catch (apiError) {
       console.error(`[酷我] API获取播放链接失败: ${apiError.message}`);
-    }
-    
-    // 如果API失败，尝试直接构建播放链接
-    try {
-      // 酷我音乐直接播放链接格式
-      const br = qualityParam === 'flac' ? 'flac' : qualityParam;
-      const directUrl = `http://mobi.kuwo.cn/mobi.s?f=kuwo&q=${br}&rid=MUSIC_${songId}&type=convert_url_with_sign`;
-      
-      console.log(`[酷我] 尝试直接链接: ${directUrl}`);
-      
-      // 获取重定向后的真实播放地址
-      const response = await axios_1.default.get(directUrl, {
-        maxRedirects: 0,
-        validateStatus: function (status) {
-          return status >= 200 && status < 400; // 接受重定向状态码
-        },
-        headers: {
-          'User-Agent': 'okhttp/3.14.9',
-          'Accept': '*/*',
-        }
-      });
-      
-      // 如果是重定向，获取Location头
-      if (response.status === 302 || response.status === 301) {
-        const realUrl = response.headers.location;
-        if (realUrl) {
-          console.log(`[酷我] 获取到重定向链接`);
-          return {
-            url: realUrl
-          };
-        }
-      } else if (response.data && typeof response.data === 'string') {
-        // 有些情况下直接返回URL
-        const urlMatch = response.data.match(/http[s]?:\/\/[^\s]+/);
-        if (urlMatch) {
-          console.log(`[酷我] 从响应中提取链接`);
-          return {
-            url: urlMatch[0]
-          };
-        }
-      }
-    } catch (directError) {
-      console.error(`[酷我] 直接链接获取失败: ${directError.message}`);
     }
     
     console.error(`[酷我] 获取播放链接失败`);
