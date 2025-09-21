@@ -1235,7 +1235,7 @@ async function getMediaSource(musicItem, quality) {
 }
 module.exports = {
   platform: "咪咕音乐",
-  author: "ikun0014",
+  author: "Toskysun",
   version: "0.2.0",
   appVersion: ">0.1.0-alpha.0",
   // 声明插件支持的音质列表（基于咪咕音乐实际提供的音质）

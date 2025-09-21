@@ -740,7 +740,7 @@ async function getMusicInfo(musicItem) {
 }
 module.exports = {
   platform: "酷我音乐",
-  author: "ikun0014",
+  author: "Toskysun",
   version: "0.2.0",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,

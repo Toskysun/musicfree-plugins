@@ -1284,7 +1284,7 @@ async function importMusicSheet(urlLike) {
 module.exports = {
   platform: "酷狗音乐",
   version: "0.2.0",
-  author: "ikun0014",
+  author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",

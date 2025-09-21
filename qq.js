@@ -730,7 +730,7 @@ async function getMediaSource(musicItem, quality) {
 }
 module.exports = {
   platform: "QQ音乐",
-  author: "ikun0014",
+  author: "Toskysun",
   version: "0.2.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
