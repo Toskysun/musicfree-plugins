@@ -440,23 +440,9 @@ const qualityLevels = {
 };
 async function getMediaSource(musicItem, quality) {
   try {
-    let songId = musicItem.id;
-    
-    // 检查音质信息，使用对应音质的hash
-    if (musicItem.qualities && musicItem.qualities[quality]) {
-      // 如果有特定音质的hash，使用它
-      if (musicItem.qualities[quality].hash) {
-        songId = musicItem.qualities[quality].hash;
-      }
-    } else if (!musicItem.qualities) {
-      // 如果没有音质信息，使用原始hash
-      songId = musicItem.hash || musicItem.id;
-    } else {
-      // 歌曲不支持请求的音质，返回错误
-      console.error(`[酷狗] 歌曲不支持音质 ${quality}`);
-      throw new Error(`该歌曲不支持 ${quality} 音质`);
-    }
-    
+    // 优先使用flac的hash，如果没有则使用歌曲id
+    let songId = musicItem.sqhash || musicItem.id;
+
     const res = (
       await axios_1.default.get(
         `${API_URL}/url?source=kg&songId=${songId}&quality=${qualityLevels[quality]}`,
@@ -469,7 +455,7 @@ async function getMediaSource(musicItem, quality) {
         }
       )
     ).data;
-    
+
     if (res.code === 200 && res.url) {
       return {
         url: res.url
