@@ -66,7 +66,7 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY
 4. 选择 **从网络安装**
 5. 输入单个插件链接，例如：
    ```
-   https://musicfree-plugins.netlify.app/plugin/wy.js?key=YOUR_API_KEY
+   https://musicfree-plugins.netlify.app/plugins/wy.js?key=YOUR_API_KEY
    ```
 
 ## 📱 完整示例
@@ -80,7 +80,7 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY_HER
 
 **单个插件链接**（网易云音乐）:
 ```
-https://musicfree-plugins.netlify.app/plugin/wy.js?key=YOUR_API_KEY_HERE
+https://musicfree-plugins.netlify.app/plugins/wy.js?key=YOUR_API_KEY_HERE
 ```
 
 在 MusicFree 中添加订阅后，会自动导入所有 5 个平台的插件！
@@ -98,7 +98,7 @@ GET /api/subscription.json?key=YOUR_API_KEY
 ### 单个插件下载接口
 
 ```
-GET /plugin/{platform}.js?key=YOUR_API_KEY
+GET /plugins/{platform}.js?key=YOUR_API_KEY
 ```
 
 支持的平台:
@@ -189,7 +189,7 @@ netlify dev
 curl "http://localhost:8888/api/subscription.json?key=test123"
 
 # 测试插件下载
-curl "http://localhost:8888/plugin/wy.js?key=test123"
+curl "http://localhost:8888/plugins/wy.js?key=test123"
 ```
 
 ## 🤝 贡献

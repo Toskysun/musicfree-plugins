@@ -78,8 +78,21 @@ exports.handler = async (event, context) => {
     }
 
     // 从路径中提取插件名称
-    // Netlify路径重定向后，插件名称会在queryStringParameters中
-    const pluginName = event.queryStringParameters?.plugin;
+    // 路径格式: /plugins/wy.js 或 /.netlify/functions/plugin
+    let pluginName = event.queryStringParameters?.plugin;
+
+    // 如果没有从查询参数获取到，尝试从路径中提取
+    if (!pluginName) {
+      const path = event.path || event.rawUrl || '';
+      console.log(`Extracting plugin name from path: ${path}`);
+
+      // 匹配 /plugins/xxx.js 或 /plugin/xxx.js
+      const match = path.match(/\/plugins?\/([^/?]+\.js)/);
+      if (match) {
+        pluginName = match[1];
+        console.log(`Extracted plugin name: ${pluginName}`);
+      }
+    }
 
     if (!pluginName) {
       console.error('Missing plugin name in request');

@@ -21,14 +21,14 @@
   force = true
 
 [[redirects]]
-  from = "/plugin/:plugin"
-  to = "/.netlify/functions/plugin?plugin=:plugin"
+  from = "/plugin/*"
+  to = "/.netlify/functions/plugin"
   status = 200
   force = true
 
 [[redirects]]
-  from = "/plugins/:plugin"
-  to = "/.netlify/functions/plugin?plugin=:plugin"
+  from = "/plugins/*"
+  to = "/.netlify/functions/plugin"
   status = 200
   force = true
 
