@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - 页面未找到 | MusicFree Plugin API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --card-hover-bg: rgba(255, 255, 255, 0.15);
+            --text-color: #ffffff;
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --code-bg: rgba(0, 0, 0, 0.3);
+            --warning-color: #FF9800;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-theme {
+            --primary-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-hover-bg: rgba(255, 255, 255, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.1);
+            --code-bg: rgba(0, 0, 0, 0.4);
+        }
+
+        body.light-theme {
+            --primary-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --card-hover-bg: rgba(255, 255, 255, 0.85);
+            --text-color: #2c3e50;
+            --input-bg: rgba(255, 255, 255, 0.9);
+            --code-bg: rgba(0, 0, 0, 0.05);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            padding: 20px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(15deg);
+            background: var(--card-hover-bg);
+        }
+
+        /* Container */
+        .container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        /* 404 Number with Animation */
+        .error-code {
+            font-size: clamp(80px, 20vw, 180px);
+            font-weight: 900;
+            margin-bottom: 30px;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(90deg, #fff 0%, #f0f0f0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .error-code::after {
+            content: '404';
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: -1;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        @keyframes glow {
+            0% {
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            }
+            100% {
+                text-shadow: 0 0 60px rgba(255, 255, 255, 0.6);
+            }
+        }
+
+        /* Music Notes Decoration */
+        .music-notes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .note {
+            position: absolute;
+            font-size: 40px;
+            opacity: 0.15;
+            animation: floatNote 10s ease-in-out infinite;
+        }
+
+        .note:nth-child(1) { left: 10%; animation-delay: 0s; }
+        .note:nth-child(2) { left: 20%; animation-delay: 1s; }
+        .note:nth-child(3) { left: 30%; animation-delay: 2s; }
+        .note:nth-child(4) { left: 40%; animation-delay: 3s; }
+        .note:nth-child(5) { left: 50%; animation-delay: 4s; }
+        .note:nth-child(6) { left: 60%; animation-delay: 5s; }
+        .note:nth-child(7) { left: 70%; animation-delay: 1.5s; }
+        .note:nth-child(8) { left: 80%; animation-delay: 2.5s; }
+        .note:nth-child(9) { left: 90%; animation-delay: 3.5s; }
+
+        @keyframes floatNote {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.15;
+            }
+            90% {
+                opacity: 0.15;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Headings */
+        h1 {
+            font-size: clamp(28px, 5vw, 48px);
+            margin-bottom: 20px;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .subtitle {
+            font-size: clamp(16px, 3vw, 22px);
+            margin-bottom: 40px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            background: var(--card-hover-bg);
+        }
+
+        .card h2 {
+            font-size: clamp(20px, 4vw, 26px);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Endpoint Links */
+        .endpoint {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .endpoint-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: clamp(15px, 2.5vw, 18px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .endpoint-url {
+            background: var(--code-bg);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: clamp(12px, 2vw, 14px);
+            word-break: break-all;
+            border-left: 4px solid rgba(102, 126, 234, 0.6);
+            line-height: 1.6;
+            transition: all 0.3s ease;
+        }
+
+        .endpoint-url:hover {
+            background: var(--input-bg);
+            transform: translateX(5px);
+        }
+
+        /* Button */
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: clamp(16px, 3vw, 18px);
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        /* Emoji Decorations */
+        .emoji-decoration {
+            font-size: clamp(40px, 8vw, 80px);
+            margin: 20px 0;
+            display: inline-block;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                transform: translateY(-15px) scale(1.1);
+            }
+        }
+
+        /* Warning Box */
+        .info-box {
+            background: rgba(102, 126, 234, 0.2);
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+            font-size: clamp(14px, 2.5vw, 16px);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+
+            .card {
+                padding: 25px;
+            }
+
+            .theme-toggle {
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+
+            .error-code {
+                margin-bottom: 20px;
+            }
+
+            .music-notes .note {
+                font-size: 30px;
+            }
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            opacity: 0.7;
+            font-size: clamp(12px, 2vw, 14px);
+            animation: fadeIn 1.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+        <span id="themeIcon">🌙</span>
+    </button>
+
+    <!-- Floating Music Notes Background -->
+    <div class="music-notes">
+        <div class="note">🎵</div>
+        <div class="note">🎶</div>
+        <div class="note">🎵</div>
+        <div class="note">🎶</div>
+        <div class="note">🎵</div>
+        <div class="note">🎶</div>
+        <div class="note">🎵</div>
+        <div class="note">🎶</div>
+        <div class="note">🎵</div>
+    </div>
+
+    <div class="container">
+        <!-- Error Code -->
+        <div class="error-code">404</div>
+
+        <!-- Heading -->
+        <h1>🎧 页面走丢了</h1>
+        <p class="subtitle">
+            就像丢失的音符，这个页面不在这里...<br>
+            但别担心，让我们帮你找到正确的方向！
+        </p>
+
+        <!-- Emoji Decoration -->
+        <div class="emoji-decoration">🔍</div>
+
+        <!-- API Endpoints Card -->
+        <div class="card">
+            <h2>📡 可用的 API 端点</h2>
+
+            <div class="endpoint">
+                <div class="endpoint-title">
+                    <span>📋</span>
+                    <span>插件订阅接口</span>
+                </div>
+                <div class="endpoint-url">/api/subscription.json?key=YOUR_API_KEY</div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-title">
+                    <span>📦</span>
+                    <span>单个插件下载</span>
+                </div>
+                <div class="endpoint-url">/plugin/{platform}.js?key=YOUR_API_KEY</div>
+            </div>
+
+            <div class="info-box">
+                <span style="font-size: 24px;">💡</span>
+                <span>支持的平台: <strong>wy</strong> (网易云), <strong>qq</strong> (QQ音乐), <strong>kg</strong> (酷狗), <strong>kw</strong> (酷我), <strong>mg</strong> (咪咕)</span>
+            </div>
+        </div>
+
+        <!-- Back Button -->
+        <a href="/" class="btn">🏠 返回首页</a>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>MusicFree Plugin Subscription Service</p>
+            <p>如果您认为这是一个错误，请联系管理员</p>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle Function
+        function toggleTheme() {
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+
+            if (body.classList.contains('dark-theme')) {
+                body.classList.remove('dark-theme');
+                body.classList.add('light-theme');
+                themeIcon.textContent = '☀️';
+                localStorage.setItem('theme', 'light');
+            } else if (body.classList.contains('light-theme')) {
+                body.classList.remove('light-theme');
+                themeIcon.textContent = '🌙';
+                localStorage.setItem('theme', 'default');
+            } else {
+                body.classList.add('dark-theme');
+                themeIcon.textContent = '🌈';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Load Theme from LocalStorage
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+
+            if (savedTheme === 'dark') {
+                body.classList.add('dark-theme');
+                themeIcon.textContent = '🌈';
+            } else if (savedTheme === 'light') {
+                body.classList.add('light-theme');
+                themeIcon.textContent = '☀️';
+            } else {
+                themeIcon.textContent = '🌙';
+            }
+        }
+
+        // Initialize Theme on Load
+        loadTheme();
+
+        // Add keyboard shortcut for theme toggle (Ctrl/Cmd + T)
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+                e.preventDefault();
+                toggleTheme();
+            }
+        });
+    </script>
+</body>
+</html>

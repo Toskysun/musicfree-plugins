@@ -1,0 +1,61 @@
+[build]
+  # 构建命令（如果需要）
+  command = "echo 'No build required'"
+
+  # 发布目录（静态文件）
+  publish = "."
+
+  # Functions 目录
+  functions = "netlify/functions"
+
+# 环境变量（可在Netlify UI中配置）
+[context.production.environment]
+  # BASE_URL将自动使用Netlify部署URL
+  # 也可以手动设置: BASE_URL = "https://your-custom-domain.com"
+
+# URL重定向规则 - 保持原有API路径兼容
+[[redirects]]
+  from = "/api/subscription.json"
+  to = "/.netlify/functions/subscription"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/plugin/:plugin"
+  to = "/.netlify/functions/plugin?plugin=:plugin"
+  status = 200
+  force = true
+
+# 健康检查重定向
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/subscription"
+  status = 200
+
+# 根路径显示API信息页面（静态HTML）
+# index.html会自动被serve
+
+# 404 处理
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
+
+# Headers配置 - 全局CORS和安全头
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+
+# Functions配置
+[functions]
+  # Functions运行时Node版本
+  node_bundler = "esbuild"
+
+  # 包含插件文件到部署包中
+  included_files = ["plugins/*.js"]
