@@ -606,14 +606,14 @@
                     <span>📋</span>
                     <span>插件订阅接口</span>
                 </div>
-                <div class="link-box">GET /api/subscription.json?key=YOUR_API_KEY</div>
+                <div class="link-box">GET https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY</div>
             </div>
             <div class="link-item" style="margin-top: 20px;">
                 <div class="link-title">
                     <span>📦</span>
                     <span>单个插件下载接口</span>
                 </div>
-                <div class="link-box">GET /plugin/{platform}.js?key=YOUR_API_KEY</div>
+                <div class="link-box">GET https://musicfree-plugins.netlify.app/plugins/{platform}.js?key=YOUR_API_KEY</div>
             </div>
         </div>
 
@@ -684,7 +684,7 @@
             pluginGrid.innerHTML = '';
 
             PLUGINS.forEach(plugin => {
-                const pluginUrl = `${baseUrl}/plugin/${plugin.file}?key=${apiKey}`;
+                const pluginUrl = `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`;
 
                 const card = document.createElement('div');
                 card.className = 'plugin-card';

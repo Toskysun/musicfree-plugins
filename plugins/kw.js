@@ -1,6 +1,6 @@
 const API_URL = "http://103.217.184.26:9000";
 const API_KEY = "YOUR_KEY";
-const UPDATE_URL = "https://musicfree.3kddyys.workers.dev/plugin/kw.js?key=YOUR_KEY";
+const UPDATE_URL = "https://musicfree-plugins.netlify.app/plugins/kw.js?key=YOUR_KEY";
 
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });

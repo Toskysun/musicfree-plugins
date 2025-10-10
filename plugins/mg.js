@@ -1,6 +1,6 @@
 const API_URL = "http://103.217.184.26:9000";
 const API_KEY = "YOUR_KEY";
-const UPDATE_URL = "https://musicfree.3kddyys.workers.dev/plugin/mg.js?key=YOUR_KEY";
+const UPDATE_URL = "https://musicfree-plugins.netlify.app/plugins/mg.js?key=YOUR_KEY";
 
 // 转换字节为可读格式
 function sizeFormate(size) {
