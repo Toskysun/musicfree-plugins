@@ -26,6 +26,12 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/plugins/:plugin"
+  to = "/.netlify/functions/plugin?plugin=:plugin"
+  status = 200
+  force = true
+
 # 健康检查重定向
 [[redirects]]
   from = "/health"

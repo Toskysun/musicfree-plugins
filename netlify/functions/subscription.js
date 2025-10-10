@@ -79,7 +79,7 @@ exports.handler = async (event, context) => {
     // 构建插件列表
     const pluginsList = PLUGINS.map(plugin => ({
       name: plugin.name,
-      url: `${baseUrl}/plugin/${plugin.file}?key=${key}`,
+      url: `${baseUrl}/plugins/${plugin.file}?key=${key}`,
       version: plugin.version
     }));
 
