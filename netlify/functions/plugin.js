@@ -65,7 +65,7 @@ exports.handler = async (event, context) => {
 
   try {
     // 从查询参数获取API Key
-    const key = event.queryStringParameters?.key;
+    let key = event.queryStringParameters?.key;
 
     // 验证API Key
     if (!key) {
@@ -75,6 +75,13 @@ exports.handler = async (event, context) => {
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: "Missing 'key' parameter" })
       };
+    }
+
+    // 移除 key 末尾的 .json 后缀（如果存在）
+    // 提供更好的容错性
+    if (key.endsWith('.json')) {
+      key = key.slice(0, -5);
+      console.log(`Removed .json suffix from key`);
     }
 
     // 从路径中提取插件名称

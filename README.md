@@ -43,8 +43,10 @@
 
 订阅链接格式：
 ```
-https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY
+https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY.json
 ```
+
+> **注意**：订阅链接的 key 参数后需要添加 `.json` 后缀，这是 MusicFree 的要求。
 
 ### 第 3 步：在 MusicFree 中添加订阅
 
@@ -73,9 +75,9 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY
 
 **假设你的 API Key 是**: `YOUR_API_KEY_HERE`
 
-**订阅链接**:
+**订阅链接**（MusicFree 要求 key 后加 .json）:
 ```
-https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY_HERE
+https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY_HERE.json
 ```
 
 **单个插件链接**（网易云音乐）:
@@ -90,10 +92,12 @@ https://musicfree-plugins.netlify.app/plugins/wy.js?key=YOUR_API_KEY_HERE
 ### 插件订阅接口
 
 ```
-GET /api/subscription.json?key=YOUR_API_KEY
+GET /api/subscription.json?key=YOUR_API_KEY.json
 ```
 
 返回所有可用插件列表的 JSON 格式数据。
+
+> **注意**：MusicFree 要求订阅链接的 key 参数后需要添加 `.json` 后缀。
 
 ### 单个插件下载接口
 
@@ -185,10 +189,10 @@ netlify dev
 ### 测试 API
 
 ```bash
-# 测试订阅接口
-curl "http://localhost:8888/api/subscription.json?key=test123"
+# 测试订阅接口（注意 key 后面的 .json）
+curl "http://localhost:8888/api/subscription.json?key=test123.json"
 
-# 测试插件下载
+# 测试插件下载（插件链接不需要 .json）
 curl "http://localhost:8888/plugins/wy.js?key=test123"
 ```
 

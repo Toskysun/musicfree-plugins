@@ -606,7 +606,7 @@
                     <span>📋</span>
                     <span>插件订阅接口</span>
                 </div>
-                <div class="link-box">GET https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY</div>
+                <div class="link-box">GET https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY.json</div>
             </div>
             <div class="link-item" style="margin-top: 20px;">
                 <div class="link-title">
@@ -664,8 +664,8 @@
 
             const baseUrl = getBaseUrl();
 
-            // Generate subscription URL
-            const subscriptionUrl = `${baseUrl}/api/subscription.json?key=${apiKey}`;
+            // Generate subscription URL (MusicFree requires .json suffix on key)
+            const subscriptionUrl = `${baseUrl}/api/subscription.json?key=${apiKey}.json`;
             document.getElementById('subscriptionUrl').textContent = subscriptionUrl;
 
             // Show sections
