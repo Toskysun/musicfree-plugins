@@ -53,7 +53,7 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY
 1. 打开 **MusicFree** APP
 2. 进入 **设置** → **插件管理**
 3. 点击右上角 **➕ 加号**
-4. ��择 **订阅**
+4. 选择 **订阅**
 5. 粘贴订阅链接
 6. 点击确认
 7. 完成！自动导入 5 个平台插件
