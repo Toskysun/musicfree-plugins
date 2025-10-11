@@ -516,7 +516,7 @@
         <!-- Header -->
         <div class="header">
             <h1>🎵 MusicFree Plugin Subscription</h1>
-            <p class="subtitle">插件订阅服务 - 支持5大音乐平台</p>
+            <p class="subtitle">插件订阅服务 - 支持8大音乐平台</p>
             <div class="status-badge">
                 <span class="status-dot"></span>
                 <span>服务运行中</span>
@@ -588,7 +588,7 @@
                 </li>
                 <li>
                     <strong>完成！</strong><br>
-                    自动导入所有5个平台的插件，享受音乐吧 🎉
+                    自动导入所有8个平台的插件，享受音乐吧 🎉
                 </li>
             </ul>
 
@@ -639,12 +639,17 @@
 
     <script>
         // Plugin Configuration
+        // requiresKey: true - 需要 API KEY 的插件（原始5个）
+        // requiresKey: false - 不需要 API KEY 的插件（新增3个）
         const PLUGINS = [
-            { name: '网易云音乐', file: 'wy.js', version: '0.2.0', icon: '☁️' },
-            { name: 'QQ音乐', file: 'qq.js', version: '0.2.0', icon: '🐧' },
-            { name: '酷狗音乐', file: 'kg.js', version: '0.2.0', icon: '🐶' },
-            { name: '酷我音乐', file: 'kw.js', version: '0.2.0', icon: '🎵' },
-            { name: '咪咕音乐', file: 'mg.js', version: '0.2.0', icon: '🎤' }
+            { name: '网易云音乐', file: 'wy.js', version: '0.2.0', icon: '☁️', requiresKey: true },
+            { name: 'QQ音乐', file: 'qq.js', version: '0.2.0', icon: '🐧', requiresKey: true },
+            { name: '酷狗音乐', file: 'kg.js', version: '0.2.0', icon: '🐶', requiresKey: true },
+            { name: '酷我音乐', file: 'kw.js', version: '0.2.0', icon: '🎵', requiresKey: true },
+            { name: '咪咕音乐', file: 'mg.js', version: '0.2.0', icon: '🎤', requiresKey: true },
+            { name: 'Bilibili', file: 'bilibili.js', version: '0.2.3', icon: '📺', requiresKey: false },
+            { name: '汽水音乐', file: 'qishui.js', version: '0.2.0', icon: '🥤', requiresKey: false },
+            { name: 'Gitcode', file: 'git.js', version: '0.2.0', icon: '🔧', requiresKey: false }
         ];
 
         // Get Base URL
@@ -684,13 +689,23 @@
             pluginGrid.innerHTML = '';
 
             PLUGINS.forEach(plugin => {
-                const pluginUrl = `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`;
+                // 根据插件类型生成不同的URL
+                // 需要 API KEY 的插件：添加 key 参数
+                // 不需要 API KEY 的插件：直接访问
+                const pluginUrl = plugin.requiresKey
+                    ? `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`
+                    : `${baseUrl}/plugins/${plugin.file}`;
+
+                const keyBadge = plugin.requiresKey
+                    ? ''
+                    : '<div style="display: inline-block; background: rgba(76, 175, 80, 0.2); padding: 4px 8px; border-radius: 5px; font-size: 11px; margin-bottom: 8px;">✓ 无需 Key</div>';
 
                 const card = document.createElement('div');
                 card.className = 'plugin-card';
                 card.innerHTML = `
                     <span class="plugin-icon">${plugin.icon}</span>
                     <div class="plugin-name">${plugin.name}</div>
+                    ${keyBadge}
                     <div class="plugin-version">版本 ${plugin.version}</div>
                     <button class="btn copy-btn" style="width: 100%; font-size: 14px; padding: 10px;"
                             onclick="event.stopPropagation(); copyPluginLink('${pluginUrl}', this)">
