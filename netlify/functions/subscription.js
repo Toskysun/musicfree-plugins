@@ -10,11 +10,6 @@ const path = require('path');
 // 需要 API KEY 的插件列表（原始5个插件）
 const PLUGINS_REQUIRE_KEY = ['wy.js', 'mg.js', 'kg.js', 'kw.js', 'qq.js'];
 
-// 缓存对象
-let cachedPlugins = null;
-let cacheTimestamp = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
-
 /**
  * 从插件文件中提取元数据
  */
@@ -44,17 +39,10 @@ function extractPluginMetadata(filePath) {
 
 /**
  * 扫描插件目录并获取所有插件信息
+ * 每次推送后立即更新，无缓存机制
  */
 function scanPlugins() {
-  const now = Date.now();
-
-  // 检查缓存是否有效
-  if (cachedPlugins && (now - cacheTimestamp) < CACHE_TTL) {
-    console.log('Using cached plugins');
-    return cachedPlugins;
-  }
-
-  console.log('Scanning plugins directory...');
+  console.log('Scanning plugins directory for latest versions...');
 
   // 插件目录路径（相对于此文件的位置）
   const pluginsDir = path.join(__dirname, '../../plugins');
@@ -81,17 +69,12 @@ function scanPlugins() {
       console.log(`Found plugin: ${file} (${metadata.platform} v${metadata.version})`);
     }
 
-    // 更新缓存
-    cachedPlugins = plugins;
-    cacheTimestamp = now;
-
-    console.log(`Scanned ${plugins.length} plugins, cache valid for ${CACHE_TTL / 1000}s`);
+    console.log(`Scanned ${plugins.length} plugins successfully`);
     return plugins;
 
   } catch (error) {
     console.error('Error scanning plugins directory:', error);
-    // 如果扫描失败，返回旧缓存或空数组
-    return cachedPlugins || [];
+    return [];
   }
 }
 
