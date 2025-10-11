@@ -115,14 +115,9 @@ exports.handler = async (event, context) => {
       console.log(`Removed .json suffix from key`);
     }
 
-    // 如果插件需要 key 但没有提供，返回错误
+    // 如果插件需要 key 但没有提供，正常返回（保留 YOUR_KEY 占位符）
     if (requiresKey && !key) {
-      console.warn(`Missing API key for plugin: ${pluginName}`);
-      return {
-        statusCode: 400,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: "Missing 'key' parameter. This plugin requires an API key." })
-      };
+      console.log(`Plugin ${pluginName} requires key but none provided, returning with YOUR_KEY placeholder`);
     }
 
     // 读取插件文件
