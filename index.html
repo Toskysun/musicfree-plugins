@@ -670,17 +670,13 @@
         // Generate Links
         function generateLinks() {
             const apiKey = document.getElementById('apiKey').value.trim();
-
-            if (!apiKey) {
-                showToast('请输入 API Key', '⚠️');
-                document.getElementById('apiKey').focus();
-                return;
-            }
-
             const baseUrl = getBaseUrl();
 
-            // Generate subscription URL (MusicFree requires .json suffix on key)
-            const subscriptionUrl = `${baseUrl}/api/subscription.json?key=${apiKey}.json`;
+            // Generate subscription URL
+            // 如果有 key 则添加 key 参数，否则直接生成不带参数的 URL
+            const subscriptionUrl = apiKey
+                ? `${baseUrl}/api/subscription.json?key=${apiKey}.json`
+                : `${baseUrl}/api/subscription.json`;
             document.getElementById('subscriptionUrl').textContent = subscriptionUrl;
 
             // Show sections
@@ -699,12 +695,15 @@
             pluginGrid.innerHTML = '';
 
             PLUGINS.forEach(plugin => {
-                // 根据插件类型生成不同的URL
-                // 需要 API KEY 的插件：添加 key 参数
+                // 根据插件类型和是否有 key 生成不同的URL
+                // 需要 API KEY 的插件：如果有 key 则添加，否则不带参数
                 // 不需要 API KEY 的插件：直接访问
-                const pluginUrl = plugin.requiresKey
-                    ? `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`
-                    : `${baseUrl}/plugins/${plugin.file}`;
+                let pluginUrl;
+                if (plugin.requiresKey && apiKey) {
+                    pluginUrl = `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`;
+                } else {
+                    pluginUrl = `${baseUrl}/plugins/${plugin.file}`;
+                }
 
                 const keyBadgeContent = plugin.requiresKey
                     ? ''

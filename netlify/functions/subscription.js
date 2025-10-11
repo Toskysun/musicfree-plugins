@@ -141,24 +141,19 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // 从查询参数获取API Key
+    // 从查询参数获取API Key（可选）
     let key = event.queryStringParameters?.key;
 
-    // 验证API Key
-    if (!key) {
-      console.warn('Missing API key in subscription request');
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: "Missing 'key' parameter" })
-      };
-    }
-
-    // 移除 key 末尾的 .json 后缀（如果存在）
-    // MusicFree 会在订阅链接的 key 后面自动添加 .json
-    if (key.endsWith('.json')) {
-      key = key.slice(0, -5);
-      console.log(`Removed .json suffix from key`);
+    // 如果提供了 key，移除 .json 后缀
+    if (key) {
+      // 移除 key 末尾的 .json 后缀（如果存在）
+      // MusicFree 会在订阅链接的 key 后面自动添加 .json
+      if (key.endsWith('.json')) {
+        key = key.slice(0, -5);
+        console.log(`Removed .json suffix from key`);
+      }
+    } else {
+      console.log('No API key provided, generating subscription without key');
     }
 
     // 获取BASE_URL（从环境变量或使用默认值）
@@ -168,11 +163,11 @@ exports.handler = async (event, context) => {
     const plugins = scanPlugins();
 
     // 构建插件列表
-    // 需要 API KEY 的插件：添加 key 参数
+    // 需要 API KEY 的插件：如果有 key 则添加，否则不带参数
     // 不需要 API KEY 的插件（Gitcode, Bilibili, 汽水音乐）：直接访问
     const pluginsList = plugins.map(plugin => ({
       name: plugin.name,
-      url: plugin.requiresKey
+      url: (plugin.requiresKey && key)
         ? `${baseUrl}/plugins/${plugin.file}?key=${key}`
         : `${baseUrl}/plugins/${plugin.file}`,
       version: plugin.version
@@ -184,7 +179,11 @@ exports.handler = async (event, context) => {
       ua: getClientUA(event.headers)
     };
 
-    console.log(`Subscription request from IP: ${clientInfo.ip}`);
+    if (key) {
+      console.log(`Subscription request from IP: ${clientInfo.ip} with key: ${key.substring(0, 8)}...`);
+    } else {
+      console.log(`Subscription request from IP: ${clientInfo.ip} without key (returning all plugins)`);
+    }
 
     // 返回订阅数据
     return {
