@@ -290,6 +290,8 @@
             cursor: pointer;
             position: relative;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .plugin-card::before {
@@ -325,6 +327,14 @@
             font-weight: bold;
             font-size: 18px;
             margin-bottom: 8px;
+        }
+
+        .plugin-badge {
+            height: 24px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .plugin-version {
@@ -696,16 +706,16 @@
                     ? `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`
                     : `${baseUrl}/plugins/${plugin.file}`;
 
-                const keyBadge = plugin.requiresKey
+                const keyBadgeContent = plugin.requiresKey
                     ? ''
-                    : '<div style="display: inline-block; background: rgba(76, 175, 80, 0.2); padding: 4px 8px; border-radius: 5px; font-size: 11px; margin-bottom: 8px;">✓ 无需 Key</div>';
+                    : '<span style="display: inline-block; background: rgba(76, 175, 80, 0.2); padding: 4px 8px; border-radius: 5px; font-size: 11px;">✓ 无需 Key</span>';
 
                 const card = document.createElement('div');
                 card.className = 'plugin-card';
                 card.innerHTML = `
                     <span class="plugin-icon">${plugin.icon}</span>
                     <div class="plugin-name">${plugin.name}</div>
-                    ${keyBadge}
+                    <div class="plugin-badge">${keyBadgeContent}</div>
                     <div class="plugin-version">版本 ${plugin.version}</div>
                     <button class="btn copy-btn" style="width: 100%; font-size: 14px; padding: 10px;"
                             onclick="event.stopPropagation(); copyPluginLink('${pluginUrl}', this)">
