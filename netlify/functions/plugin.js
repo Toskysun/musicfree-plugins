@@ -133,13 +133,20 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 替换YOUR_KEY占位符为用户的API Key（仅当插件需要 key 时）
-    const modifiedContent = requiresKey && key
-      ? pluginContent.replace(/YOUR_KEY/g, key)
-      : pluginContent;
+    // 替换YOUR_KEY占位符
+    // - 如果提供了 key：替换为实际的 key
+    // - 如果插件需要 key 但未提供：替换为空字符串
+    // - 如果插件不需要 key：保持原样
+    let modifiedContent = pluginContent;
 
     if (requiresKey) {
-      console.log(`Serving plugin: ${pluginName} with key: ${key.substring(0, 8)}...`);
+      if (key) {
+        modifiedContent = pluginContent.replace(/YOUR_KEY/g, key);
+        console.log(`Serving plugin: ${pluginName} with key: ${key.substring(0, 8)}...`);
+      } else {
+        modifiedContent = pluginContent.replace(/YOUR_KEY/g, '');
+        console.log(`Serving plugin: ${pluginName} with YOUR_KEY replaced by empty string (no key provided)`);
+      }
     } else {
       console.log(`Serving plugin: ${pluginName} (no key required)`);
     }
