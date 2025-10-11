@@ -7,6 +7,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// 需要 API KEY 的插件列表（原始5个插件）
+const PLUGINS_REQUIRE_KEY = ['wy.js', 'mg.js', 'kg.js', 'kw.js', 'qq.js'];
+
 /**
  * 验证插件文件名（防止路径遍历攻击）
  */
@@ -64,27 +67,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // 从查询参数获取API Key
-    let key = event.queryStringParameters?.key;
-
-    // 验证API Key
-    if (!key) {
-      console.warn('Missing API key for plugin request');
-      return {
-        statusCode: 400,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: "Missing 'key' parameter" })
-      };
-    }
-
-    // 移除 key 末尾的 .json 后缀（如果存在）
-    // 提供更好的容错性
-    if (key.endsWith('.json')) {
-      key = key.slice(0, -5);
-      console.log(`Removed .json suffix from key`);
-    }
-
-    // 从路径中提取插件名称
+    // 从路径中提取插件名称（先获取插件名，再决定是否需要 key）
     // 路径格式: /plugins/wy.js 或 /.netlify/functions/plugin
     let pluginName = event.queryStringParameters?.plugin;
 
@@ -120,6 +103,28 @@ exports.handler = async (event, context) => {
       };
     }
 
+    // 检查插件是否需要 API Key
+    const requiresKey = PLUGINS_REQUIRE_KEY.includes(pluginName);
+
+    // 从查询参数获取 API Key
+    let key = event.queryStringParameters?.key;
+
+    // 移除 key 末尾的 .json 后缀（如果存在）
+    if (key && key.endsWith('.json')) {
+      key = key.slice(0, -5);
+      console.log(`Removed .json suffix from key`);
+    }
+
+    // 如果插件需要 key 但没有提供，返回错误
+    if (requiresKey && !key) {
+      console.warn(`Missing API key for plugin: ${pluginName}`);
+      return {
+        statusCode: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: "Missing 'key' parameter. This plugin requires an API key." })
+      };
+    }
+
     // 读取插件文件
     let pluginContent;
     try {
@@ -133,10 +138,16 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 替换YOUR_KEY占位符为用户的API Key
-    const modifiedContent = pluginContent.replace(/YOUR_KEY/g, key);
+    // 替换YOUR_KEY占位符为用户的API Key（仅当插件需要 key 时）
+    const modifiedContent = requiresKey && key
+      ? pluginContent.replace(/YOUR_KEY/g, key)
+      : pluginContent;
 
-    console.log(`Serving plugin: ${pluginName} with key: ${key.substring(0, 8)}...`);
+    if (requiresKey) {
+      console.log(`Serving plugin: ${pluginName} with key: ${key.substring(0, 8)}...`);
+    } else {
+      console.log(`Serving plugin: ${pluginName} (no key required)`);
+    }
 
     // 返回JavaScript内容
     return {
