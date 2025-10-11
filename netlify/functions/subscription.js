@@ -12,15 +12,30 @@ const PLUGINS_REQUIRE_KEY = ['wy.js', 'mg.js', 'kg.js', 'kw.js', 'qq.js'];
 
 /**
  * 从插件文件中提取元数据
+ * 只从 module.exports 块中提取，避免匹配到其他位置的同名字段
  */
 function extractPluginMetadata(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
 
-    // 提取 module.exports 中的信息
-    const platformMatch = content.match(/platform\s*:\s*['"](.*?)['"]/);
-    const versionMatch = content.match(/version\s*:\s*['"](.*?)['"]/);
-    const authorMatch = content.match(/author\s*:\s*['"](.*?)['"]/);
+    // 找到 module.exports 的位置
+    const moduleExportsIndex = content.lastIndexOf('module.exports');
+    if (moduleExportsIndex === -1) {
+      console.warn(`No module.exports found in ${filePath}`);
+      return {
+        platform: 'Unknown',
+        version: '0.0.0',
+        author: 'Unknown'
+      };
+    }
+
+    // 只在 module.exports 之后搜索元数据
+    const exportsContent = content.substring(moduleExportsIndex);
+
+    // 提取 module.exports 中的信息，支持单引号、双引号和无引号
+    const platformMatch = exportsContent.match(/['"]?platform['"]?\s*:\s*['"](.*?)['"]/);
+    const versionMatch = exportsContent.match(/['"]?version['"]?\s*:\s*['"](.*?)['"]/);
+    const authorMatch = exportsContent.match(/['"]?author['"]?\s*:\s*['"](.*?)['"]/);
 
     return {
       platform: platformMatch ? platformMatch[1] : 'Unknown',
