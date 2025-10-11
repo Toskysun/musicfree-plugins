@@ -76,26 +76,22 @@ function getTypes(item) {
     let types = {};
     let format = item.format?.toLowerCase();
     if (format == 'flac') {
-        types.high = {
-            // type: 'flac',
+        types.flac = {
             size: item.filesize,
             url: item.download_url
         }
     } else if (format == 'mp3') {
-        types.standard = {
-            // type: '320k',
+        types['320k'] = {
             size: item.filesize,
             url: item.download_url
         };
     } else if (format == 'm4a' || format == 'mp4') {
-        types.low = {
-            // type: '128k',
+        types['128k'] = {
             size: item.filesize,
             url: item.download_url
         }
     } else {
-        types.low = {
-            // type: '128k',
+        types['128k'] = {
             size: item.filesize,
             url: item.download_url
         }
