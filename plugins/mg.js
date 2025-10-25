@@ -489,36 +489,175 @@ async function getArtistWorks(artistItem, page, type) {
     return getArtistAlbumWorks(artistItem, page);
   }
 }
-async function getLyric(musicItem) {
-  const headers = {
-    Accept: "application/json, text/javascript, */*; q=0.01",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-    Connection: "keep-alive",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    Host: "m.music.migu.cn",
-    Referer: `https://m.music.migu.cn/migu/l/?s=149&p=163&c=5200&j=l&id=${musicItem.copyrightId}`,
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "User-Agent":
-      "Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Mobile Safari/537.36 Edg/89.0.774.68",
-    "X-Requested-With": "XMLHttpRequest",
-  };
-  const result = (
-    await axios_1.default.get(
-      "https://m.music.migu.cn/migu/remoting/cms_detail_tag",
+// 咪咕 MRC 解密和解析函数
+const { Buffer } = require('buffer');
+const pako = require('pako');
+
+// MRC 解密密钥
+const MRC_KEY = Buffer.from([
+  0x40, 0x47, 0x61, 0x77, 0x5E, 0x32, 0x74, 0x47,
+  0x51, 0x36, 0x31, 0x2D, 0xCE, 0xD2, 0x6E, 0x69
+]);
+
+function decryptMrc(base64Content) {
+  try {
+    const encrypted = Buffer.from(base64Content, 'base64');
+    const decrypted = Buffer.alloc(encrypted.length);
+
+    for (let i = 0; i < encrypted.length; i++) {
+      decrypted[i] = encrypted[i] ^ MRC_KEY[i % MRC_KEY.length];
+    }
+
+    return decrypted.toString('utf-8');
+  } catch (error) {
+    console.error('[咪咕] MRC解密失败:', error);
+    return null;
+  }
+}
+
+function parseMrc(mrcContent) {
+  try {
+    const lines = mrcContent.split(/\r\n|\r|\n/);
+    const lrcLines = [];
+
+    for (const line of lines) {
+      const match = line.match(/^\s*\[(\d+),\d+\]/);
+      if (match) {
+        const startTime = parseInt(match[1]);
+        let ms = startTime % 1000;
+        let totalSeconds = Math.floor(startTime / 1000);
+        let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+        let s = (totalSeconds % 60).toString().padStart(2, '0');
+        const timeTag = `[${m}:${s}.${ms}]`;
+        const words = line.replace(/^\s*\[\d+,\d+\]/, '').replace(/\(\d+,\d+\)/g, '');
+        lrcLines.push(`${timeTag}${words}`);
+      }
+    }
+
+    return lrcLines.join('\n');
+  } catch (error) {
+    console.error('[咪咕] MRC解析失败:', error);
+    return null;
+  }
+}
+
+async function getMiGuMusicInfo(copyrightId) {
+  try {
+    const res = await axios_1.default.post(
+      'https://c.musicapp.migu.cn/MIGUM2.0/v1.0/content/resourceinfo.do?resourceType=2',
+      `resourceId=${copyrightId}`,
       {
-        headers,
-        params: {
-          cpid: musicItem.copyrightId,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36',
+          'Referer': 'https://m.music.migu.cn/',
         },
       }
-    )
-  ).data;
-  return {
-    rawLrc: result.data.lyricLrc,
-  };
+    );
+
+    if (res.data && res.data.resource && res.data.resource.length > 0) {
+      return res.data.resource[0];
+    }
+    return null;
+  } catch (error) {
+    console.error('[咪咕] 获取歌曲信息失败:', error);
+    return null;
+  }
+}
+
+async function fetchText(url) {
+  if (!url) return '';
+  try {
+    const res = await axios_1.default.get(url, {
+      headers: {
+        'Referer': 'https://app.c.nf.migu.cn/',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; Nexus 6 Build/LYZ28E)',
+      },
+    });
+    return res.data || '';
+  } catch (error) {
+    console.error('[咪咕] 获取文本失败:', error);
+    return '';
+  }
+}
+
+async function getLyric(musicItem) {
+  try {
+    // 获取歌曲详细信息（包含歌词URL）
+    const musicInfo = await getMiGuMusicInfo(musicItem.copyrightId);
+
+    if (!musicInfo) {
+      // 降级到原有API
+      const headers = {
+        Accept: "application/json, text/javascript, */*; q=0.01",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        Connection: "keep-alive",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        Host: "m.music.migu.cn",
+        Referer: `https://m.music.migu.cn/migu/l/?s=149&p=163&c=5200&j=l&id=${musicItem.copyrightId}`,
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Mobile Safari/537.36 Edg/89.0.774.68",
+        "X-Requested-With": "XMLHttpRequest",
+      };
+      const result = (
+        await axios_1.default.get(
+          "https://m.music.migu.cn/migu/remoting/cms_detail_tag",
+          {
+            headers,
+            params: {
+              cpid: musicItem.copyrightId,
+            },
+          }
+        )
+      ).data;
+      return {
+        rawLrc: result.data.lyricLrc,
+      };
+    }
+
+    // 并行获取原文和译文
+    let lyricPromise;
+
+    // 优先使用 MRC，其次 LRC
+    if (musicInfo.mrcUrl) {
+      lyricPromise = fetchText(musicInfo.mrcUrl).then(content => {
+        const decrypted = decryptMrc(content);
+        if (decrypted) {
+          const parsed = parseMrc(decrypted);
+          if (parsed) return parsed;
+        }
+        return null;
+      });
+    } else if (musicInfo.lrcUrl) {
+      lyricPromise = fetchText(musicInfo.lrcUrl);
+    }
+
+    // 获取译文
+    const translationPromise = musicInfo.trcUrl
+      ? fetchText(musicInfo.trcUrl)
+      : Promise.resolve('');
+
+    if (!lyricPromise) {
+      return { rawLrc: '' };
+    }
+
+    const [lyric, translation] = await Promise.all([lyricPromise, translationPromise]);
+
+    if (!lyric) {
+      return { rawLrc: '' };
+    }
+
+    return {
+      rawLrc: lyric,
+      translation: translation || undefined,
+    };
+  } catch (error) {
+    console.error('[咪咕] 获取歌词失败:', error);
+    return { rawLrc: '' };
+  }
 }
 async function getMusicSheetInfo(sheet, page) {
   try {

@@ -556,11 +556,118 @@ async function getTopListDetail(topListItem) {
     musicList: res.data.data.info.map(formatMusicItem2),
   });
 }
+
+// 酷狗 KRC 解密和解析函数
+const { Buffer } = require('buffer');
+const pako = require('pako');
+
+// KRC 解密密钥
+const KRC_KEY = Buffer.from([
+  0x40, 0x47, 0x61, 0x77, 0x5e, 0x32, 0x74, 0x47,
+  0x51, 0x36, 0x31, 0x2d, 0xce, 0xd2, 0x6e, 0x69
+]);
+
+function decryptKrc(base64Content) {
+  try {
+    const buf = Buffer.from(base64Content, 'base64');
+    // 跳过前4个字节
+    const encrypted = buf.slice(4);
+
+    // XOR 解密
+    for (let i = 0; i < encrypted.length; i++) {
+      encrypted[i] = encrypted[i] ^ KRC_KEY[i % 16];
+    }
+
+    // 使用 pako 解压
+    const decompressed = pako.inflate(encrypted, { to: 'string' });
+    return decompressed;
+  } catch (error) {
+    console.error('[酷狗] KRC解密失败:', error);
+    return null;
+  }
+}
+
+function parseKrc(krcContent) {
+  try {
+    const headExp = /^.*\[id:\$\w+\]\n/;
+    let content = krcContent.replace(/\r/g, '');
+
+    // 移除文件头
+    if (headExp.test(content)) {
+      content = content.replace(headExp, '');
+    }
+
+    // 提取译文和罗马音
+    let translation = '';
+    let romaji = '';
+    const transMatch = content.match(/\[language:([\w=\\/+]+)\]/);
+
+    if (transMatch) {
+      content = content.replace(/\[language:[\w=\\/+]+\]\n/, '');
+      try {
+        const langData = JSON.parse(Buffer.from(transMatch[1], 'base64').toString());
+        for (const item of langData.content) {
+          switch (item.type) {
+            case 0: // 罗马音
+              romaji = item.lyricContent;
+              break;
+            case 1: // 译文
+              translation = item.lyricContent;
+              break;
+          }
+        }
+      } catch (e) {
+        console.error('[酷狗] 解析language标签失败:', e);
+      }
+    }
+
+    // 解析主歌词
+    const lines = content.split('\n');
+    const lrcLines = [];
+    const translationLines = [];
+
+    let lineIndex = 0;
+    for (const line of lines) {
+      const match = line.match(/^\[((\d+),\d+)\].*/);
+      if (match) {
+        const time = parseInt(match[2]);
+        let ms = time % 1000;
+        let totalSeconds = Math.floor(time / 1000);
+        let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+        let s = (totalSeconds % 60).toString().padStart(2, '0');
+        const timeTag = `[${m}:${s}.${ms}]`;
+
+        // 提取歌词文本（移除逐字时间戳）
+        const text = line.replace(/^\[\d+,\d+\]/, '').replace(/<\d+,\d+>/g, '');
+        lrcLines.push(`${timeTag}${text}`);
+
+        // 添加译文（如果存在）
+        if (translation && Array.isArray(translation) && translation[lineIndex]) {
+          const transText = Array.isArray(translation[lineIndex])
+            ? translation[lineIndex].join('')
+            : translation[lineIndex];
+          translationLines.push(`${timeTag}${transText}`);
+        }
+
+        lineIndex++;
+      }
+    }
+
+    return {
+      lyric: lrcLines.join('\n'),
+      translation: translationLines.length > 0 ? translationLines.join('\n') : '',
+    };
+  } catch (error) {
+    console.error('[酷狗] KRC解析失败:', error);
+    return null;
+  }
+}
+
 async function getLyricDownload(lyrdata) {
-  const result = (
-    await (0, axios_1.default)({
-      // url: `http://lyrics.kugou.com/download?ver=1&client=pc&id=${lyrdata.id}&accesskey=${lyrdata.accessKey}&fmt=krc&charset=utf8`,
-      url: `http://lyrics.kugou.com/download?ver=1&client=pc&id=${lyrdata.id}&accesskey=${lyrdata.accessKey}&fmt=lrc&charset=utf8`,
+  try {
+    // 优先获取 KRC 格式（包含译文）
+    const krcResult = await (0, axios_1.default)({
+      url: `http://lyrics.kugou.com/download?ver=1&client=pc&id=${lyrdata.id}&accesskey=${lyrdata.accessKey}&fmt=krc&charset=utf8`,
       headers: {
         "KG-RC": 1,
         "KG-THash": "expand_search_manager.cpp:852736169:451",
@@ -569,13 +676,46 @@ async function getLyricDownload(lyrdata) {
       method: "get",
       xsrfCookieName: "XSRF-TOKEN",
       withCredentials: true,
-    })
-  ).data;
-  return {
-    rawLrc: he.decode(
-      CryptoJs.enc.Base64.parse(result.content).toString(CryptoJs.enc.Utf8)
-    ),
-  };
+    }).catch(() => null);
+
+    // 如果 KRC 成功获取，解密并解析
+    if (krcResult?.data?.content) {
+      const decrypted = decryptKrc(krcResult.data.content);
+      if (decrypted) {
+        const parsed = parseKrc(decrypted);
+        if (parsed) {
+          return {
+            rawLrc: parsed.lyric,
+            translation: parsed.translation || undefined,
+          };
+        }
+      }
+    }
+
+    // 降级到 LRC 格式（无译文）
+    const lrcResult = (
+      await (0, axios_1.default)({
+        url: `http://lyrics.kugou.com/download?ver=1&client=pc&id=${lyrdata.id}&accesskey=${lyrdata.accessKey}&fmt=lrc&charset=utf8`,
+        headers: {
+          "KG-RC": 1,
+          "KG-THash": "expand_search_manager.cpp:852736169:451",
+          "User-Agent": "KuGou2012-9020-ExpandSearchManager",
+        },
+        method: "get",
+        xsrfCookieName: "XSRF-TOKEN",
+        withCredentials: true,
+      })
+    ).data;
+
+    return {
+      rawLrc: he.decode(
+        CryptoJs.enc.Base64.parse(lrcResult.content).toString(CryptoJs.enc.Utf8)
+      ),
+    };
+  } catch (error) {
+    console.error('[酷狗] 获取歌词失败:', error);
+    return { rawLrc: '' };
+  }
 }
 // copy from lxmusic https://github.com/lyswhut/lx-music-desktop/blob/master/src/renderer/utils/musicSdk/kg/lyric.js#L114
 async function getLyric(musicItem) {

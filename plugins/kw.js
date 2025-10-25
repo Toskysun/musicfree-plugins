@@ -338,6 +338,36 @@ async function getArtistWorks(artistItem, page, type) {
     return getArtistAlbumWorks(artistItem, page);
   }
 }
+// 分离原文和译文歌词（酷我使用重复时间戳表示译文）
+function sortLrcArr(arr) {
+  const lrcSet = new Set();
+  const lrc = [];
+  const lrcT = [];
+
+  for (const item of arr) {
+    if (lrcSet.has(item.time)) {
+      // 时间戳重复，说明前一句是原文，当前句是译文
+      if (lrc.length < 2) continue;
+      const tItem = lrc.pop();
+      tItem.time = lrc[lrc.length - 1].time;
+      lrcT.push(tItem);
+      lrc.push(item);
+    } else {
+      lrc.push(item);
+      lrcSet.add(item.time);
+    }
+  }
+
+  return {
+    lrc,
+    lrcT,
+  };
+}
+
+function transformLrc(lrclist) {
+  return lrclist.map((l) => `[${l.time}]${l.lineLyric}`).join("\n");
+}
+
 async function getLyric(musicItem) {
   const res = (
     await axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
@@ -348,8 +378,17 @@ async function getLyric(musicItem) {
     })
   ).data;
   const list = res.data.lrclist;
+
+  if (!list || list.length === 0) {
+    return { rawLrc: "" };
+  }
+
+  // 分离原文和译文
+  const lrcInfo = sortLrcArr(list);
+
   return {
-    rawLrc: list.map((_) => `[${_.time}]${_.lineLyric}`).join("\n"),
+    rawLrc: transformLrc(lrcInfo.lrc),
+    translation: lrcInfo.lrcT.length > 0 ? transformLrc(lrcInfo.lrcT) : undefined,
   };
 }
 async function getAlbumInfo(albumItem) {

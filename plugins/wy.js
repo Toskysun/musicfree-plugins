@@ -507,7 +507,8 @@ async function getLyric(musicItem) {
     })
   ).data;
   return {
-    rawLrc: result.lrc.lyric,
+    rawLrc: result.lrc?.lyric,
+    translation: result.tlyric?.lyric,
   };
 }
 async function getMusicInfo(musicItem) {
