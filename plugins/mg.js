@@ -11,6 +11,17 @@ function sizeFormate(size) {
   return (size / (1024 * 1024 * 1024)).toFixed(2) + 'GB';
 }
 
+// 统一处理图片URL
+function formatImgUrl(img) {
+  if (!img) return null;
+  // 如果已经是完整的URL，直接返回
+  if (/^https?:/.test(img)) return img;
+  // 如果以//开头，添加http:协议
+  if (/^\/\//.test(img)) return 'http:' + img;
+  // 否则添加咪咕图片服务器前缀
+  return 'http://d.musicapp.migu.cn' + img;
+}
+
 // MD5加密函数
 function toMD5(str) {
   return CryptoJS.MD5(str).toString();
@@ -253,9 +264,12 @@ async function searchMusic(query, page) {
           };
         }
         
+        // 处理封面图片URL
+        const artwork = formatImgUrl(item.img3 || item.img2 || item.img1 || item.picL || item.picM || item.picS || item.cover || item.songPic);
+
         musics.push({
           id: item.songId,
-          artwork: item.picL || item.picM || item.picS || item.cover || item.songPic,
+          artwork: artwork,
           title: item.name || item.songName,
           artist: formatSingerName(item.singerList) || item.artist,
           album: item.album || item.albumName,
@@ -310,7 +324,7 @@ async function searchMusic(query, page) {
       
       return {
         id: _.id,
-        artwork: _.picL || _.picM || _.picS || _.cover || _.songPic,
+        artwork: formatImgUrl(_.picL || _.picM || _.picS || _.cover || _.songPic),
         title: _.songName,
         artist: _.artist,
         album: _.albumName,
@@ -343,7 +357,7 @@ async function searchAlbum(query, page) {
   const data = await searchBase(query, page, 4);
   const albums = data.albums.map((_) => ({
     id: _.id,
-    artwork: _.albumPicL,
+    artwork: formatImgUrl(_.albumPicL),
     title: _.title,
     date: _.publishDate,
     artist: (_.singer || []).map((s) => s.name).join(","),
@@ -360,7 +374,7 @@ async function searchArtist(query, page) {
   const artists = data.artists.map((result) => ({
     name: result.title,
     id: result.id,
-    avatar: result.artistPicL,
+    avatar: formatImgUrl(result.artistPicL),
     worksNum: result.songNum,
   }));
   return {
@@ -374,7 +388,7 @@ async function searchMusicSheet(query, page) {
     title: result.name,
     id: result.id,
     artist: result.userName,
-    artwork: result.picL || result.picM || result.picS || result.img || result.cover,
+    artwork: formatImgUrl(result.picL || result.picM || result.picS || result.img || result.cover),
     description: result.intro,
     worksNum: result.musicNum,
     playCount: result.playNum,
@@ -390,7 +404,7 @@ async function searchLyric(query, page) {
     title: result.title,
     id: result.id,
     artist: result.artist,
-    artwork: result.picL || result.picM || result.picS || result.cover || result.songPic,
+    artwork: formatImgUrl(result.picL || result.picM || result.picS || result.cover || result.songPic),
     lrc: result.lyrics,
     album: result.albumName,
     copyrightId: result.copyrightId,
@@ -430,7 +444,7 @@ async function getArtistAlbumWorks(artistItem, page) {
     albums.push({
       id: al.find(".album-play").attr("data-id"),
       title: al.find(".album-name").text(),
-      artwork: artwork.startsWith("//") ? `https:${artwork}` : artwork,
+      artwork: formatImgUrl(artwork),
       date: "",
       artist: artistItem.name,
     });
@@ -474,7 +488,7 @@ async function getArtistWorks(artistItem, page, type) {
     return {
       data: musicList.result.results.map((_) => ({
         id: _.songId,
-        artwork: _.picL,
+        artwork: formatImgUrl(_.picL),
         title: _.songName,
         artist: (_.singerName || []).join(", "),
         album: _.albumName,
@@ -755,13 +769,11 @@ async function getMusicSheetInfo(sheet, page) {
           // 处理封面图片
           let artwork = null;
           if (item.albumImgs && item.albumImgs.length > 0) {
-            artwork = item.albumImgs[0].img;
-          } else if (item.albumPic) {
-            artwork = item.albumPic;
-          } else if (item.img3 || item.img2 || item.img1) {
-            artwork = item.img3 || item.img2 || item.img1;
+            artwork = formatImgUrl(item.albumImgs[0].img);
+          } else {
+            artwork = formatImgUrl(item.albumPic || item.img3 || item.img2 || item.img1);
           }
-          
+
           return {
             id: item.songId || item.id,
             artwork: artwork,
@@ -852,9 +864,11 @@ async function getMusicSheetInfo(sheet, page) {
           
           return {
             id: item.songId || item.copyrightId || item.id,
-            artwork: item.albumImgs && item.albumImgs.length > 0 
-              ? item.albumImgs[0].img 
-              : (item.img3 || item.img2 || item.img1 || item.cover),
+            artwork: formatImgUrl(
+              item.albumImgs && item.albumImgs.length > 0
+                ? item.albumImgs[0].img
+                : (item.img3 || item.img2 || item.img1 || item.cover)
+            ),
             title: item.songName || item.name,
             artist: item.singer || formatSingerName(item.singers),
             album: item.album || item.albumName,
@@ -922,13 +936,7 @@ async function getMusicSheetInfo(sheet, page) {
           
           return {
             id: _.id,
-            artwork: (
-              (_a = _.mediumPic) === null || _a === void 0
-                ? void 0
-                : _a.startsWith("//")
-            )
-              ? `http:${_.mediumPic}`
-              : _.mediumPic,
+            artwork: formatImgUrl(_.mediumPic),
             title: _.name,
             artist:
               (_f =
@@ -1085,7 +1093,7 @@ async function importMusicSheet(urlLike) {
       var _a, _b, _c, _d, _e, _f;
       return {
         id: _.songId,
-        artwork: _.picL || _.picM || _.picS || _.cover || _.songPic,
+        artwork: formatImgUrl(_.picL || _.picM || _.picS || _.cover || _.songPic),
         title: _.songName,
         artist:
           (_b =
@@ -1216,13 +1224,7 @@ async function getTopListDetail(topListItem) {
       var _a, _b, _c, _d, _e, _f;
       return {
         id: _.id,
-        artwork: (
-          (_a = _.mediumPic) === null || _a === void 0
-            ? void 0
-            : _a.startsWith("//")
-        )
-          ? `https:${_.mediumPic}`
-          : _.mediumPic,
+        artwork: formatImgUrl(_.mediumPic),
         title: _.name,
         artist:
           (_c =
@@ -1320,7 +1322,7 @@ async function getRecommendSheetsByTag(sheetItem, page) {
     id: _.playListId,
     artist: _.createUserName,
     title: _.playListName,
-    artwork: _.image.startsWith("//") ? `http:${_.image}` : _.image,
+    artwork: formatImgUrl(_.image),
     playCount: _.playCount,
     createUserId: _.createUserId,
   }));
@@ -1376,8 +1378,19 @@ async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
 
   try {
-    // 咪咕使用copyrightId作为评论的targetId
-    const targetId = musicItem.copyrightId || musicItem.id;
+    // 获取正确的 songId 作为评论的 targetId
+    let targetId = musicItem.id;
+
+    // 如果 id 和 copyrightId 相同，或者没有 id，需要通过 API 获取真实的 songId
+    if (!targetId || targetId === musicItem.copyrightId) {
+      const musicInfo = await getMiGuMusicInfo(musicItem.copyrightId);
+      if (musicInfo && musicInfo.songId) {
+        targetId = musicInfo.songId;
+      } else {
+        // 如果无法获取真实 songId，使用 copyrightId 作为降级方案
+        targetId = musicItem.copyrightId || musicItem.id;
+      }
+    }
 
     const res = await axios_1.default.get(
       `https://music.migu.cn/v3/api/comment/listComments`,
@@ -1512,7 +1525,7 @@ module.exports = {
       albumItem: { description: albumDesc.albumIntro },
       musicList: musicList.result.results.map((_) => ({
         id: _.songId,
-        artwork: _.picL,
+        artwork: formatImgUrl(_.picL),
         title: _.songName,
         artist: (_.singerName || []).join(", "),
         album: albumItem.title,

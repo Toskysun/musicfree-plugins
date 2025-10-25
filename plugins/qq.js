@@ -728,10 +728,62 @@ async function getMediaSource(musicItem, quality) {
     throw error;
   }
 }
+// 获取歌曲详细信息（用于评论功能）
+async function getMusicInfoForComment(musicItem) {
+  try {
+    // 如果已经有 id，直接返回
+    if (musicItem.id && typeof musicItem.id === 'number') {
+      return musicItem.id;
+    }
+
+    // 使用 songmid 获取详细信息
+    const res = await axios_1.default.post(
+      'https://u.y.qq.com/cgi-bin/musicu.fcg',
+      {
+        comm: {
+          ct: '19',
+          cv: '1859',
+          uin: '0',
+        },
+        req: {
+          module: 'music.trackInfo.UniformRuleCtrl',
+          method: 'CgiGetTrackInfo',
+          param: {
+            types: [1],
+            ids: [musicItem.id || 0],
+            mids: [musicItem.songmid],
+            ctx: 0,
+          },
+        },
+      },
+      {
+        headers: {
+          referer: 'https://y.qq.com',
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36',
+          Cookie: 'uin=',
+        },
+      }
+    );
+
+    if (res.data && res.data.req && res.data.req.data && res.data.req.data.tracks && res.data.req.data.tracks[0]) {
+      return res.data.req.data.tracks[0].id;
+    }
+
+    return musicItem.id;
+  } catch (error) {
+    console.error('[QQ音乐] 获取歌曲信息失败:', error);
+    return musicItem.id;
+  }
+}
+
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
 
   try {
+    // 获取真实的 songId
+    const songId = await getMusicInfoForComment(musicItem);
+
     const res = await axios_1.default.post(
       'https://u.y.qq.com/cgi-bin/musicu.fcg',
       {
@@ -751,7 +803,7 @@ async function getMusicComments(musicItem, page = 1) {
           method: 'GetCommentList',
           param: {
             BizType: 1,
-            BizId: String(musicItem.songId || musicItem.id),
+            BizId: String(songId),
             LastCommentSeqNo: '',
             PageSize: pageSize,
             PageNum: page - 1,

@@ -1437,13 +1437,68 @@ async function importMusicSheet(urlLike) {
 
   return musicList;
 }
+
+// 获取音乐详细信息（用于评论功能）
+async function getMusicInfoRaw(hash) {
+  try {
+    const data = {
+      area_code: '1',
+      show_privilege: 1,
+      show_album_info: '1',
+      is_publish: '',
+      appid: 1005,
+      clientver: 11451,
+      mid: '1',
+      dfid: '-',
+      clienttime: Date.now(),
+      key: 'OIlwieks28dk2k092lksi2UIkp',
+      fields: 'album_info,author_name,audio_info,ori_audio_name,base,songname,classification',
+      data: [{ hash }]
+    };
+
+    const res = await axios_1.default.post(
+      'http://gateway.kugou.com/v3/album_audio/audio',
+      data,
+      {
+        headers: {
+          'KG-THash': '13a3164',
+          'KG-RC': '1',
+          'KG-Fake': '0',
+          'KG-RF': '00869891',
+          'User-Agent': 'Android712-AndroidPhone-11451-376-0-FeeCacheUpdate-wifi',
+          'x-router': 'kmr.service.kugou.com',
+        },
+      }
+    );
+
+    if (res.data && res.data.data && res.data.data.length > 0) {
+      return res.data.data[0][0]; // 返回第一条音乐信息
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[酷狗] 获取音乐详细信息失败:', error);
+    return null;
+  }
+}
+
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
   const timestamp = Date.now();
   const hash = musicItem.id || musicItem.hash;
 
   try {
-    const params = `dfid=0&mid=16249512204336365674023395779019&clienttime=${timestamp}&uuid=0&extdata=${hash}&appid=1005&code=fc4be23b4e972707f36b8a828a93ba8a&schash=${hash}&clientver=11409&p=${page}&clienttoken=&pagesize=${pageSize}&ver=10&kugouid=0`;
+    // 先获取 res_id（评论 API 需要 mixsongid 参数）
+    const musicInfo = await getMusicInfoRaw(hash);
+
+    if (!musicInfo || !musicInfo.classification || !musicInfo.classification[0]) {
+      console.warn('[酷狗] 无法获取 res_id，评论功能不可用');
+      return { isEnd: true, data: [] };
+    }
+
+    const res_id = musicInfo.classification[0].res_id;
+
+    const params = `dfid=0&mid=16249512204336365674023395779019&clienttime=${timestamp}&uuid=0&extdata=${hash}&appid=1005&code=fc4be23b4e972707f36b8a828a93ba8a&schash=${hash}&clientver=11409&p=${page}&clienttoken=&pagesize=${pageSize}&ver=10&kugouid=0&mixsongid=${res_id}`;
 
     const res = await axios_1.default.get(
       `http://m.comment.service.kugou.com/r/v1/rank/newest?${params}&signature=${signatureParams(params)}`,
