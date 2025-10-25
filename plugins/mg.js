@@ -404,7 +404,7 @@ async function searchLyric(query, page) {
     title: result.title,
     id: result.id,
     artist: result.artist,
-    artwork: formatImgUrl(result.picL || result.picM || result.picS || result.cover || result.songPic),
+    artwork: formatImgUrl(result.img3 || result.img2 || result.img1 || result.picL || result.picM || result.picS || result.cover || result.songPic),
     lrc: result.lyrics,
     album: result.albumName,
     copyrightId: result.copyrightId,
@@ -1378,19 +1378,8 @@ async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
 
   try {
-    // 获取正确的 songId 作为评论的 targetId
-    let targetId = musicItem.id;
-
-    // 如果 id 和 copyrightId 相同，或者没有 id，需要通过 API 获取真实的 songId
-    if (!targetId || targetId === musicItem.copyrightId) {
-      const musicInfo = await getMiGuMusicInfo(musicItem.copyrightId);
-      if (musicInfo && musicInfo.songId) {
-        targetId = musicInfo.songId;
-      } else {
-        // 如果无法获取真实 songId，使用 copyrightId 作为降级方案
-        targetId = musicItem.copyrightId || musicItem.id;
-      }
-    }
+    // 使用简化的API，直接使用songId作为targetId
+    const targetId = musicItem.id || musicItem.copyrightId;
 
     const res = await axios_1.default.get(
       `https://music.migu.cn/v3/api/comment/listComments`,

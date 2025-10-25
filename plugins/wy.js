@@ -413,7 +413,8 @@ async function searchLyric(query, page) {
       (_a = res.result.songs) === null || _a === void 0
         ? void 0
         : _a.map((it) => {
-            var _a, _b, _c;
+            var _a, _b, _c, _d, _e;
+            const album = it.al || it.album;
             return {
               title: it.name,
               artist:
@@ -421,8 +422,7 @@ async function searchLyric(query, page) {
                   ? void 0
                   : _a.map((_) => _.name).join(", "),
               id: it.id,
-              artwork:
-                (_b = it.al || it.album) === null || _b === void 0 ? void 0 : _b.picUrl,
+              artwork: album?.picUrl || album?.blurPicUrl || album?.pic_str || album?.pic || null,
               album: (_c = it.al || it.album) === null || _c === void 0 ? void 0 : _c.name,
               // 不直接返回歌词文本，而是返回歌曲ID，让MusicFree通过getLyric获取
               platform: "网易云音乐",

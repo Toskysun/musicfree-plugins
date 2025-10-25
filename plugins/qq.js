@@ -770,10 +770,10 @@ async function getMusicInfoForComment(musicItem) {
       return res.data.req.data.tracks[0].id;
     }
 
-    return musicItem.id;
+    return typeof musicItem.id === 'number' ? musicItem.id : null;
   } catch (error) {
     console.error('[QQ音乐] 获取歌曲信息失败:', error);
-    return musicItem.id;
+    return typeof musicItem.id === 'number' ? musicItem.id : null;
   }
 }
 
@@ -783,6 +783,12 @@ async function getMusicComments(musicItem, page = 1) {
   try {
     // 获取真实的 songId
     const songId = await getMusicInfoForComment(musicItem);
+
+    // 验证 songId 有效性
+    if (!songId || typeof songId !== 'number') {
+      console.error('[QQ音乐] 无效的歌曲ID:', songId);
+      return { isEnd: true, data: [] };
+    }
 
     const res = await axios_1.default.post(
       'https://u.y.qq.com/cgi-bin/musicu.fcg',

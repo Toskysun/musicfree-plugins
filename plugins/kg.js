@@ -1486,41 +1486,33 @@ async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
   const timestamp = Date.now();
   const hash = musicItem.id || musicItem.hash;
+  const albumAudioId = musicItem.album_audio_id || 0;
 
   try {
-    // 先获取 res_id（评论 API 需要 mixsongid 参数）
-    const musicInfo = await getMusicInfoRaw(hash);
-
-    if (!musicInfo || !musicInfo.classification || !musicInfo.classification[0]) {
-      console.warn('[酷狗] 无法获取 res_id，评论功能不可用');
-      return { isEnd: true, data: [] };
-    }
-
-    const res_id = musicInfo.classification[0].res_id;
-
-    const params = `dfid=0&mid=16249512204336365674023395779019&clienttime=${timestamp}&uuid=0&extdata=${hash}&appid=1005&code=fc4be23b4e972707f36b8a828a93ba8a&schash=${hash}&clientver=11409&p=${page}&clienttoken=&pagesize=${pageSize}&ver=10&kugouid=0&mixsongid=${res_id}`;
+    // 使用简化的API，不需要获取res_id
+    const params = `appid=1005&clienttime=${timestamp}&clientver=20000&dfid=-&key=OIlwieks28dk2k092lksi2UIkp&mid=${timestamp}&page=${page}&pagesize=${pageSize}&special_id=0&type=get_comment&uuid=${timestamp}&album_audio_id=${albumAudioId}`;
 
     const res = await axios_1.default.get(
-      `http://m.comment.service.kugou.com/r/v1/rank/newest?${params}&signature=${signatureParams(params)}`,
+      `http://comment.service.kugou.com/index.php?${params}&signature=${signatureParams(params)}`,
       {
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1',
         },
       }
     );
 
-    if (res.status !== 200 || res.data.err_code !== 0) {
+    if (res.status !== 200 || res.data.status !== 1) {
       return { isEnd: true, data: [] };
     }
 
     const comments = (res.data.list || []).map((item) => ({
       id: item.id?.toString(),
-      nickName: item.user_name || '',
-      avatar: item.user_pic,
+      nickName: item.author_name || '',
+      avatar: item.pic,
       comment: item.content || '',
-      like: item.like?.likenum,
-      createAt: item.addtime ? new Date(item.addtime).getTime() : null,
+      like: item.like_count,
+      createAt: item.addtime ? item.addtime * 1000 : null,
       location: item.location,
       replies: [],
     }));
