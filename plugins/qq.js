@@ -728,6 +728,83 @@ async function getMediaSource(musicItem, quality) {
     throw error;
   }
 }
+async function getMusicComments(musicItem, page = 1) {
+  const pageSize = 20;
+
+  try {
+    const res = await axios_1.default.post(
+      'https://u.y.qq.com/cgi-bin/musicu.fcg',
+      {
+        comm: {
+          cv: 4747474,
+          ct: 24,
+          format: 'json',
+          inCharset: 'utf-8',
+          outCharset: 'utf-8',
+          notice: 0,
+          platform: 'yqq.json',
+          needNewCode: 1,
+          uin: 0,
+        },
+        req: {
+          module: 'music.globalComment.CommentRead',
+          method: 'GetCommentList',
+          param: {
+            BizType: 1,
+            BizId: String(musicItem.songId || musicItem.id),
+            LastCommentSeqNo: '',
+            PageSize: pageSize,
+            PageNum: page - 1,
+            HotType: 0,
+            WithAirborne: 0,
+            PicEnable: 1,
+          },
+        },
+      },
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36',
+          referer: 'https://y.qq.com/',
+          origin: 'https://y.qq.com',
+        },
+      }
+    );
+
+    if (res.status !== 200 || res.data.code !== 0 || res.data.req?.code !== 0) {
+      return { isEnd: true, data: [] };
+    }
+
+    const commentData = res.data.req?.data?.CommentList || {};
+    const comments = (commentData.Comments || []).map((item) => ({
+      id: item.CmId?.toString(),
+      nickName: item.Nick || '',
+      avatar: item.Avatar,
+      comment: item.Content || '',
+      like: item.PraiseNum,
+      createAt: item.PubTime ? parseInt(item.PubTime + '000') : null,
+      location: item.Location,
+      replies: (item.SubComments || []).map((c) => ({
+        id: c.CmId?.toString(),
+        nickName: c.Nick || '',
+        avatar: c.Avatar,
+        comment: c.Content || '',
+        like: c.PraiseNum,
+        createAt: c.PubTime ? parseInt(c.PubTime + '000') : null,
+      })),
+    }));
+
+    const total = commentData.Total || 0;
+
+    return {
+      isEnd: page * pageSize >= total,
+      data: comments,
+    };
+  } catch (error) {
+    console.error('[QQ音乐] 获取评论失败:', error);
+    return { isEnd: true, data: [] };
+  }
+}
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
@@ -772,4 +849,5 @@ module.exports = {
   getRecommendSheetTags,
   getRecommendSheetsByTag,
   getMusicSheetInfo,
+  getMusicComments,
 };

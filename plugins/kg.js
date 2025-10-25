@@ -381,6 +381,21 @@ async function searchMusicSheet(query, page) {
     data: sheets,
   };
 }
+async function searchLyric(query, page) {
+  // 复用音乐搜索，返回歌曲信息供歌词搜索使用
+  const res = await searchMusic(query, page);
+  return {
+    isEnd: res.isEnd,
+    data: res.data.map((item) => ({
+      title: item.title,
+      artist: item.artist,
+      id: item.id,
+      artwork: item.artwork,
+      album: item.album,
+      platform: "酷狗音乐",
+    })),
+  };
+}
 async function searchArtist(query, page) {
   try {
     const res = (
@@ -638,7 +653,8 @@ function parseKrc(krcContent) {
         const timeTag = `[${m}:${s}.${ms}]`;
 
         // 提取歌词文本（移除逐字时间戳）
-        const text = line.replace(/^\[\d+,\d+\]/, '').replace(/<\d+,\d+>/g, '');
+        // KRC格式: <time,duration,flag>字，其中flag可以是数字或字母(如0或O)
+        const text = line.replace(/^\[\d+,\d+\]/, '').replace(/<[^>]+>/g, '');
         lrcLines.push(`${timeTag}${text}`);
 
         // 添加译文（如果存在）
@@ -1418,8 +1434,52 @@ async function importMusicSheet(urlLike) {
   } catch (error) {
     console.error(`[酷狗] 导入歌单异常: ${error.message}`);
   }
-  
+
   return musicList;
+}
+async function getMusicComments(musicItem, page = 1) {
+  const pageSize = 20;
+  const timestamp = Date.now();
+  const hash = musicItem.id || musicItem.hash;
+
+  try {
+    const params = `dfid=0&mid=16249512204336365674023395779019&clienttime=${timestamp}&uuid=0&extdata=${hash}&appid=1005&code=fc4be23b4e972707f36b8a828a93ba8a&schash=${hash}&clientver=11409&p=${page}&clienttoken=&pagesize=${pageSize}&ver=10&kugouid=0`;
+
+    const res = await axios_1.default.get(
+      `http://m.comment.service.kugou.com/r/v1/rank/newest?${params}&signature=${signatureParams(params)}`,
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36',
+        },
+      }
+    );
+
+    if (res.status !== 200 || res.data.err_code !== 0) {
+      return { isEnd: true, data: [] };
+    }
+
+    const comments = (res.data.list || []).map((item) => ({
+      id: item.id?.toString(),
+      nickName: item.user_name || '',
+      avatar: item.user_pic,
+      comment: item.content || '',
+      like: item.like?.likenum,
+      createAt: item.addtime ? new Date(item.addtime).getTime() : null,
+      location: item.location,
+      replies: [],
+    }));
+
+    const total = res.data.count || 0;
+
+    return {
+      isEnd: page * pageSize >= total,
+      data: comments,
+    };
+  } catch (error) {
+    console.error('[酷狗] 获取评论失败:', error);
+    return { isEnd: true, data: [] };
+  }
 }
 module.exports = {
   platform: "酷狗音乐",
@@ -1437,7 +1497,7 @@ module.exports = {
       "导入时间和歌单大小有关，请耐心等待",
     ],
   },
-  supportedSearchType: ["music", "album", "sheet", "artist"],
+  supportedSearchType: ["music", "album", "sheet", "artist", "lyric"],
   async search(query, page, type) {
     if (type === "music") {
       return await searchMusic(query, page);
@@ -1447,6 +1507,8 @@ module.exports = {
       return await searchMusicSheet(query, page);
     } else if (type === "artist") {
       return await searchArtist(query, page);
+    } else if (type === "lyric") {
+      return await searchLyric(query, page);
     }
   },
   getMediaSource,
@@ -1457,4 +1519,5 @@ module.exports = {
   getArtistWorks,
   importMusicSheet,
   getMusicSheetInfo,
+  getMusicComments,
 };

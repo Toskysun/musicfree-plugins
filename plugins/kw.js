@@ -260,6 +260,21 @@ async function searchMusicSheet(query, page) {
     data: musicSheets,
   };
 }
+async function searchLyric(query, page) {
+  // 复用音乐搜索，返回歌曲信息供歌词搜索使用
+  const res = await searchMusic(query, page);
+  return {
+    isEnd: res.isEnd,
+    data: res.data.map((item) => ({
+      title: item.title,
+      artist: item.artist,
+      id: item.id,
+      artwork: item.artwork,
+      album: item.album,
+      platform: "酷我音乐",
+    })),
+  };
+}
 async function getArtistMusicWorks(artistItem, page) {
   const res = (
     await (0, axios_1.default)({
@@ -777,6 +792,64 @@ async function getMusicInfo(musicItem) {
     artwork: picUrl,
   };
 }
+async function getMusicComments(musicItem, page = 1) {
+  const pageSize = 20;
+
+  try {
+    const res = await axios_1.default.get(
+      'http://ncomment.kuwo.cn/com.s',
+      {
+        params: {
+          f: 'web',
+          type: 'get_comment',
+          aapiver: 1,
+          prod: 'kwplayer_ar_10.5.2.0',
+          digest: 15,
+          sid: musicItem.id,
+          start: pageSize * (page - 1),
+          msgflag: 1,
+          count: pageSize,
+          newver: 3,
+          uid: 0,
+        },
+        headers: {
+          'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9;)',
+        },
+      }
+    );
+
+    if (res.status !== 200 || res.data.code !== '200') {
+      return { isEnd: true, data: [] };
+    }
+
+    const comments = (res.data.comments || []).map((item) => ({
+      id: item.id?.toString(),
+      nickName: item.u_name || '',
+      avatar: item.u_pic,
+      comment: item.msg || '',
+      like: item.like_num,
+      createAt: item.time ? Number(item.time) * 1000 : null,
+      replies: (item.child_comments || []).map((c) => ({
+        id: c.id?.toString(),
+        nickName: c.u_name || '',
+        avatar: c.u_pic,
+        comment: c.msg || '',
+        like: c.like_num,
+        createAt: c.time ? Number(c.time) * 1000 : null,
+      })),
+    }));
+
+    const total = res.data.comments_counts || 0;
+
+    return {
+      isEnd: page * pageSize >= total,
+      data: comments,
+    };
+  } catch (error) {
+    console.error('[酷我] 获取评论失败:', error);
+    return { isEnd: true, data: [] };
+  }
+}
 module.exports = {
   platform: "酷我音乐",
   author: "Toskysun",
@@ -793,7 +866,7 @@ module.exports = {
       "导入时间和歌单大小有关，请耐心等待",
     ],
   },
-  supportedSearchType: ["music", "album", "sheet", "artist"],
+  supportedSearchType: ["music", "album", "sheet", "artist", "lyric"],
   async search(query, page, type) {
     if (type === "music") {
       return await searchMusic(query, page);
@@ -807,6 +880,9 @@ module.exports = {
     if (type === "sheet") {
       return await searchMusicSheet(query, page);
     }
+    if (type === "lyric") {
+      return await searchLyric(query, page);
+    }
   },
   getMediaSource,
   getMusicInfo,
@@ -819,4 +895,5 @@ module.exports = {
   getRecommendSheetTags,
   getRecommendSheetsByTag,
   getMusicSheetInfo,
+  getMusicComments,
 };

@@ -255,7 +255,7 @@ async function searchMusic(query, page) {
         
         musics.push({
           id: item.songId,
-          artwork: item.img3 || item.img2 || item.img1 || item.cover,
+          artwork: item.picL || item.picM || item.picS || item.cover || item.songPic,
           title: item.name || item.songName,
           artist: formatSingerName(item.singerList) || item.artist,
           album: item.album || item.albumName,
@@ -310,7 +310,7 @@ async function searchMusic(query, page) {
       
       return {
         id: _.id,
-        artwork: _.cover,
+        artwork: _.picL || _.picM || _.picS || _.cover || _.songPic,
         title: _.songName,
         artist: _.artist,
         album: _.albumName,
@@ -374,7 +374,7 @@ async function searchMusicSheet(query, page) {
     title: result.name,
     id: result.id,
     artist: result.userName,
-    artwork: result.img,
+    artwork: result.picL || result.picM || result.picS || result.img || result.cover,
     description: result.intro,
     worksNum: result.musicNum,
     playCount: result.playNum,
@@ -390,7 +390,7 @@ async function searchLyric(query, page) {
     title: result.title,
     id: result.id,
     artist: result.artist,
-    artwork: result.cover,
+    artwork: result.picL || result.picM || result.picS || result.cover || result.songPic,
     lrc: result.lyrics,
     album: result.albumName,
     copyrightId: result.copyrightId,
@@ -1085,7 +1085,7 @@ async function importMusicSheet(urlLike) {
       var _a, _b, _c, _d, _e, _f;
       return {
         id: _.songId,
-        artwork: _.cover,
+        artwork: _.picL || _.picM || _.picS || _.cover || _.songPic,
         title: _.songName,
         artist:
           (_b =
@@ -1372,6 +1372,65 @@ async function getMediaSource(musicItem, quality) {
     throw error;
   }
 }
+async function getMusicComments(musicItem, page = 1) {
+  const pageSize = 20;
+
+  try {
+    // 咪咕使用copyrightId作为评论的targetId
+    const targetId = musicItem.copyrightId || musicItem.id;
+
+    const res = await axios_1.default.get(
+      `https://music.migu.cn/v3/api/comment/listComments`,
+      {
+        params: {
+          targetId: targetId,
+          pageSize: pageSize,
+          pageNo: page,
+        },
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4195.1 Safari/537.36',
+          Referer: 'https://music.migu.cn',
+        },
+      }
+    );
+
+    if (res.status !== 200 || res.data.returnCode !== '000000') {
+      return { isEnd: true, data: [] };
+    }
+
+    const comments = (res.data.data?.items || []).map((item) => ({
+      id: item.commentId?.toString(),
+      nickName: item.author?.name || '',
+      avatar: item.author?.avatar?.startsWith('//')
+        ? `http:${item.author.avatar}`
+        : item.author?.avatar,
+      comment: item.body || '',
+      like: item.praiseCount,
+      createAt: item.createTime ? new Date(item.createTime).getTime() : null,
+      replies: (item.replyCommentList || []).map((c) => ({
+        id: c.commentId?.toString(),
+        nickName: c.author?.name || '',
+        avatar: c.author?.avatar?.startsWith('//')
+          ? `http:${c.author.avatar}`
+          : c.author?.avatar,
+        comment: c.body || '',
+        like: c.praiseCount,
+        createAt: c.createTime ? new Date(c.createTime).getTime() : null,
+      })),
+    }));
+
+    const total = res.data.data?.itemTotal || 0;
+
+    return {
+      isEnd: page * pageSize >= total,
+      data: comments,
+    };
+  } catch (error) {
+    console.error('[咪咕] 获取评论失败:', error);
+    return { isEnd: true, data: [] };
+  }
+}
 module.exports = {
   platform: "咪咕音乐",
   author: "Toskysun",
@@ -1473,4 +1532,5 @@ module.exports = {
   getRecommendSheetTags,
   getRecommendSheetsByTag,
   getMusicSheetInfo,
+  getMusicComments,
 };

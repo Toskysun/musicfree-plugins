@@ -889,6 +889,71 @@ async function getMusicSheetInfo(sheet, page) {
     extra
   );
 }
+async function getMusicComments(musicItem, page = 1) {
+  const pageSize = 20;
+  const id = 'R_SO_4_' + musicItem.id;
+
+  try {
+    const pae = getParamsAndEnc(
+      JSON.stringify({
+        cursor: page === 1 ? Date.now() : 0,
+        offset: (page - 1) * pageSize,
+        orderType: 1,
+        pageNo: page,
+        pageSize: pageSize,
+        rid: id,
+        threadId: id,
+      })
+    );
+
+    const res = await axios_1.default.post(
+      'https://music.163.com/weapi/comment/resource/comments/get',
+      qs.stringify(pae),
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
+          'origin': 'https://music.163.com',
+          'Referer': 'https://music.163.com/',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    if (res.status !== 200 || res.data.code !== 200) {
+      return { isEnd: true, data: [] };
+    }
+
+    const comments = (res.data.data.comments || []).map((item) => ({
+      id: item.commentId?.toString(),
+      nickName: item.user?.nickname || '',
+      avatar: item.user?.avatarUrl,
+      comment: item.content || '',
+      like: item.likedCount,
+      createAt: item.time,
+      location: item.ipLocation?.location,
+      replies: (item.beReplied || []).map((reply) => ({
+        id: reply.beRepliedCommentId?.toString(),
+        nickName: reply.user?.nickname || '',
+        avatar: reply.user?.avatarUrl,
+        comment: reply.content || '',
+        like: null,
+        createAt: null,
+        location: reply.ipLocation?.location,
+      })),
+    }));
+
+    const total = res.data.data.totalCount || 0;
+
+    return {
+      isEnd: page * pageSize >= total,
+      data: comments,
+    };
+  } catch (error) {
+    console.error('[网易云] 获取评论失败:', error);
+    return { isEnd: true, data: [] };
+  }
+}
 module.exports = {
   platform: "网易云音乐",
   author: "Toskysun", 
@@ -934,4 +999,5 @@ module.exports = {
   getRecommendSheetTags,
   getMusicSheetInfo,
   getRecommendSheetsByTag,
+  getMusicComments,
 };
