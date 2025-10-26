@@ -896,35 +896,33 @@ async function getMusicComments(musicItem, page = 1) {
   try {
     const pae = getParamsAndEnc(
       JSON.stringify({
-        cursor: page === 1 ? Date.now() : 0,
-        offset: (page - 1) * pageSize,
-        orderType: 1,
-        pageNo: page,
-        pageSize: pageSize,
         rid: id,
-        threadId: id,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        csrf_token: '',
       })
     );
 
     const res = await axios_1.default.post(
-      'https://music.163.com/weapi/comment/resource/comments/get',
+      `https://music.163.com/weapi/v1/resource/hotcomments/${id}`,
       qs.stringify(pae),
       {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
+          'accept': '*/*',
           'origin': 'https://music.163.com',
-          'Referer': 'https://music.163.com/',
+          'referer': 'http://music.163.com/',
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       }
     );
 
-    if (res.status !== 200 || res.data.code !== 200) {
+    if (res.status !== 200) {
       return { isEnd: true, data: [] };
     }
 
-    const comments = (res.data.data.comments || []).map((item) => ({
+    const hotComments = (res.data.hotComments || []).map((item) => ({
       id: item.commentId?.toString(),
       nickName: item.user?.nickname || '',
       avatar: item.user?.avatarUrl,
@@ -943,21 +941,21 @@ async function getMusicComments(musicItem, page = 1) {
       })),
     }));
 
-    const total = res.data.data.totalCount || 0;
+    const hasMore = res.data.hasMore || false;
 
     return {
-      isEnd: page * pageSize >= total,
-      data: comments,
+      isEnd: !hasMore,
+      data: hotComments,
     };
   } catch (error) {
-    console.error('[网易云] 获取评论失败:', error);
+    console.error('[网易云] 获取热评失败:', error);
     return { isEnd: true, data: [] };
   }
 }
 module.exports = {
   platform: "网易云音乐",
   author: "Toskysun", 
-  version: "0.2.0",
+  version: "0.2.1",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-store",

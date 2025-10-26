@@ -833,9 +833,12 @@ function formatArtistSongItem(_) {
 // 创建签名函数
 function signatureParams(params, platform = 'android', body = '') {
   const CryptoJS = require('crypto-js');
-  const key = platform === 'android' ? 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt' : 'OGlhb_mGjkNRpgBPgvkuf6L_taKhYTVi';
-  const str = params + (body ? JSON.stringify(body) : '') + key;
-  return CryptoJS.MD5(str).toString();
+  let keyparam = 'OIlwieks28dk2k092lksi2UIkp';
+  if (platform === 'web') keyparam = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
+  const param_list = params.split('&');
+  param_list.sort();
+  const sign_params = `${keyparam}${param_list.join('')}${body}${keyparam}`;
+  return CryptoJS.MD5(sign_params).toString();
 }
 
 // 处理global_collection_id类型的歌单
@@ -1486,51 +1489,93 @@ async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
   const timestamp = Date.now();
   const hash = musicItem.id || musicItem.hash;
-  const albumAudioId = musicItem.album_audio_id || 0;
 
   try {
-    // 使用简化的API，不需要获取res_id
-    const params = `appid=1005&clienttime=${timestamp}&clientver=20000&dfid=-&key=OIlwieks28dk2k092lksi2UIkp&mid=${timestamp}&page=${page}&pagesize=${pageSize}&special_id=0&type=get_comment&uuid=${timestamp}&album_audio_id=${albumAudioId}`;
+    // 获取 res_id
+    const musicInfo = await getMusicInfoRaw(hash);
+    const res_id = musicInfo?.classification?.[0]?.res_id;
 
-    const res = await axios_1.default.get(
-      `http://comment.service.kugou.com/index.php?${params}&signature=${signatureParams(params)}`,
-      {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1',
-        },
-      }
-    );
-
-    if (res.status !== 200 || res.data.status !== 1) {
+    if (!res_id) {
+      console.log('[酷狗] 无法获取res_id，获取评论失败');
       return { isEnd: true, data: [] };
     }
 
-    const comments = (res.data.list || []).map((item) => ({
-      id: item.id?.toString(),
-      nickName: item.author_name || '',
-      avatar: item.pic,
-      comment: item.content || '',
-      like: item.like_count,
-      createAt: item.addtime ? item.addtime * 1000 : null,
-      location: item.location,
-      replies: [],
-    }));
+    console.log('[酷狗] 评论请求参数:', { hash, res_id, page });
 
-    const total = res.data.count || 0;
+    // 使用固定的 code 和 mid
+    const params =
+      `appid=1005&clienttime=${timestamp}&clienttoken=0&clientver=11409&` +
+      `code=fc4be23b4e972707f36b8a828a93ba8a&dfid=0&extdata=${hash}&kugouid=0&` +
+      `mid=16249512204336365674023395779019&mixsongid=${res_id}&p=${page}&pagesize=${pageSize}&` +
+      `uuid=0&ver=10`;
+
+    const signature = signatureParams(params, 'android');
+    const url = `http://m.comment.service.kugou.com/r/v1/rank/newest?${params}&signature=${signature}`;
+
+    console.log('[酷狗] 评论请求URL:', url);
+    console.log('[酷狗] 签名:', signature);
+
+    const res = await axios_1.default.get(url, {
+      headers: {
+        'accept': 'application/json',
+        'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.24',
+      },
+      timeout: 15000,
+    });
+
+    console.log('[酷狗] 评论响应状态:', res.status);
+    console.log('[酷狗] 评论响应数据:', res.data);
+
+    if (res.status !== 200 || !res.data || !res.data.list) {
+      console.error('[酷狗] 评论API返回异常:', res.data);
+      return { isEnd: true, data: [] };
+    }
+
+    // 解析评论数据
+    const comments = (res.data.list || []).map((item) => {
+      // 解析时间字符串为时间戳
+      let timestamp = null;
+      if (item.addtime) {
+        try {
+          timestamp = new Date(item.addtime).getTime();
+        } catch (e) {
+          timestamp = null;
+        }
+      }
+
+      return {
+        id: item.id?.toString(),
+        nickName: item.user_name || '',
+        avatar: item.user_pic,
+        comment: item.content || '',
+        like: item.like?.likenum || 0,
+        createAt: timestamp,
+        location: item.location,
+        replies: [],
+      };
+    });
+
+    // 根据返回的数据判断是否结束
+    const isEnd = !res.data.list || res.data.list.length < pageSize;
+
+    console.log('[酷狗] 解析评论数量:', comments.length);
 
     return {
-      isEnd: page * pageSize >= total,
+      isEnd: isEnd,
       data: comments,
     };
   } catch (error) {
-    console.error('[酷狗] 获取评论失败:', error);
+    console.error('[酷狗] 获取评论失败:', error.message || error);
+    if (error.response) {
+      console.error('[酷狗] 响应状态:', error.response.status);
+      console.error('[酷狗] 响应数据:', error.response.data);
+    }
     return { isEnd: true, data: [] };
   }
 }
 module.exports = {
   platform: "酷狗音乐",
-  version: "0.2.0",
+  version: "0.2.1",
   author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
