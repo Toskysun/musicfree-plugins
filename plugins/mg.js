@@ -404,7 +404,7 @@ async function searchLyric(query, page) {
     title: result.title,
     id: result.id,
     artist: result.artist,
-    artwork: formatImgUrl(result.img3 || result.img2 || result.img1 || result.picL || result.picM || result.picS || result.cover || result.songPic),
+    artwork: formatImgUrl(result.img3 || result.img2 || result.img1 || result.picL || result.picM || result.picS || result.cover || result.songPic || result.albumPic || result.mediumPic),
     lrc: result.lyrics,
     album: result.albumName,
     copyrightId: result.copyrightId,

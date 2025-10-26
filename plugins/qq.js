@@ -777,6 +777,7 @@ async function getMusicInfoForComment(musicItem) {
   }
 }
 
+// 获取热评论
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
 
@@ -802,64 +803,73 @@ async function getMusicComments(musicItem, page = 1) {
           notice: 0,
           platform: 'yqq.json',
           needNewCode: 1,
-          uin: 0,
+          uin: 0
         },
         req: {
           module: 'music.globalComment.CommentRead',
-          method: 'GetCommentList',
+          method: 'GetHotCommentList',
           param: {
             BizType: 1,
             BizId: String(songId),
             LastCommentSeqNo: '',
             PageSize: pageSize,
             PageNum: page - 1,
-            HotType: 0,
+            HotType: 1,
             WithAirborne: 0,
-            PicEnable: 1,
-          },
-        },
+            PicEnable: 1
+          }
+        }
       },
       {
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36',
+          accept: 'application/json',
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36',
           referer: 'https://y.qq.com/',
           origin: 'https://y.qq.com',
-        },
+          'content-type': 'application/json; charset=utf-8'
+        }
       }
     );
 
-    if (res.status !== 200 || res.data.code !== 0 || res.data.req?.code !== 0) {
+    if (res.data.code !== 0 || !res.data.req || res.data.req.code !== 0) {
+      console.error('[QQ音乐] 获取热评论失败:', res.data);
       return { isEnd: true, data: [] };
     }
 
-    const commentData = res.data.req?.data?.CommentList || {};
-    const comments = (commentData.Comments || []).map((item) => ({
-      id: item.CmId?.toString(),
-      nickName: item.Nick || '',
-      avatar: item.Avatar,
-      comment: item.Content || '',
-      like: item.PraiseNum,
-      createAt: item.PubTime ? parseInt(item.PubTime + '000') : null,
-      location: item.Location,
-      replies: (item.SubComments || []).map((c) => ({
-        id: c.CmId?.toString(),
-        nickName: c.Nick || '',
-        avatar: c.Avatar,
-        comment: c.Content || '',
-        like: c.PraiseNum,
-        createAt: c.PubTime ? parseInt(c.PubTime + '000') : null,
-      })),
-    }));
+    const commentList = res.data.req.data?.CommentList?.Comments || [];
+    const comments = commentList.map((item) => {
+      const comment = {
+        id: item.CmId,
+        nickName: item.Nick || '',
+        avatar: item.Avatar,
+        comment: item.Content || '',
+        like: item.PraiseNum || 0,
+        createAt: item.PubTime ? parseInt(item.PubTime + '000') : null,
+        replies: []
+      };
 
-    const total = commentData.Total || 0;
+      // 处理子评论
+      if (item.SubComments && Array.isArray(item.SubComments)) {
+        comment.replies = item.SubComments.map((c) => ({
+          id: c.CmId,
+          nickName: c.Nick || '',
+          avatar: c.Avatar || '',
+          comment: c.Content || '',
+          like: c.PraiseNum || 0,
+          createAt: c.PubTime ? parseInt(c.PubTime + '000') : null,
+        }));
+      }
 
+      return comment;
+    });
+
+    // 热评论通常数量有限，判断是否结束
     return {
-      isEnd: page * pageSize >= total,
+      isEnd: commentList.length < pageSize,
       data: comments,
     };
   } catch (error) {
-    console.error('[QQ音乐] 获取评论失败:', error);
+    console.error('[QQ音乐] 获取热评论失败:', error);
     return { isEnd: true, data: [] };
   }
 }

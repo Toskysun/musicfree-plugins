@@ -408,28 +408,28 @@ async function searchLyric(query, page) {
   var _a, _b;
   // 使用类型1搜索歌曲，然后提供歌词ID
   const res = await searchBase(query, page, 1);
-  const lyrics =
-    (_b =
-      (_a = res.result.songs) === null || _a === void 0
-        ? void 0
-        : _a.map((it) => {
-            var _a, _b, _c, _d, _e;
-            const album = it.al || it.album;
-            return {
-              title: it.name,
-              artist:
-                (_a = it.ar || it.artists) === null || _a === void 0
-                  ? void 0
-                  : _a.map((_) => _.name).join(", "),
-              id: it.id,
-              artwork: album?.picUrl || album?.blurPicUrl || album?.pic_str || album?.pic || null,
-              album: (_c = it.al || it.album) === null || _c === void 0 ? void 0 : _c.name,
-              // 不直接返回歌词文本，而是返回歌曲ID，让MusicFree通过getLyric获取
-              platform: "网易云音乐",
-            };
-          })) !== null && _b !== void 0
-      ? _b
-      : [];
+
+  // 获取所有歌曲ID，批量获取完整的歌曲信息（包括封面）
+  const songIds = (res.result.songs || []).map(song => song.id);
+
+  let formattedSongs = [];
+  if (songIds.length > 0) {
+    try {
+      // 使用 getValidMusicItems 批量获取完整的歌曲详情，确保封面等字段完整
+      formattedSongs = await getValidMusicItems(songIds);
+    } catch (error) {
+      console.error('[网易云] 批量获取歌词搜索歌曲详情失败:', error);
+      // 如果批量获取失败，降级使用原始数据
+      formattedSongs = (res.result.songs || []).map(formatMusicItem);
+    }
+  }
+
+  // 为歌词搜索结果添加 platform 字段
+  const lyrics = formattedSongs.map(item => ({
+    ...item,
+    platform: "网易云音乐",
+  }));
+
   return {
     isEnd: res.result.songCount <= page * pageSize,
     data: lyrics,
