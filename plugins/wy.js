@@ -495,7 +495,7 @@ async function getLyric(musicItem) {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
     "Content-Type": "application/x-www-form-urlencoded",
   };
-  const data = { id: musicItem.id, lv: -1, tv: -1, csrf_token: "" };
+  const data = { id: musicItem.id, lv: -1, tv: -1, rv: -1, csrf_token: "" };
   const pae = getParamsAndEnc(JSON.stringify(data));
   const paeData = qs.stringify(pae);
   const result = (
@@ -509,6 +509,7 @@ async function getLyric(musicItem) {
   return {
     rawLrc: result.lrc?.lyric,
     translation: result.tlyric?.lyric,
+    romanization: result.romalrc?.lyric,
   };
 }
 async function getMusicInfo(musicItem) {
