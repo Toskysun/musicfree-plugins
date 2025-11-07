@@ -1,4 +1,4 @@
-const API_URL = "http://160.202.237.98:9000";
+const API_URL = "http://music.ikun0014.top";
 const API_KEY = "YOUR_KEY";
 const UPDATE_URL = "https://musicfree-plugins.netlify.app/plugins/kg.js?key=YOUR_KEY";
 
@@ -1575,7 +1575,7 @@ async function getMusicComments(musicItem, page = 1) {
 }
 module.exports = {
   platform: "酷狗音乐",
-  version: "0.2.1",
+  version: "0.2.2",
   author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,

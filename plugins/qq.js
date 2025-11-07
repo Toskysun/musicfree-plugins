@@ -1,4 +1,4 @@
-const API_URL = "http://160.202.237.98:9000";
+const API_URL = "http://music.ikun0014.top";
 const API_KEY = "YOUR_KEY";
 const UPDATE_URL = "https://musicfree-plugins.netlify.app/plugins/qq.js?key=YOUR_KEY";
 
@@ -876,7 +876,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.2.1",
+  version: "0.2.2",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表
