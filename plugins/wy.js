@@ -341,28 +341,25 @@ async function searchBase(query, page, type) {
 }
 async function searchMusic(query, page) {
   const res = await searchBase(query, page, 1);
-  
+
   // 获取所有歌曲ID
-  const songIds = res.result.songs.map(song => song.id);
-  
-  // 批量获取音质信息
-  let qualityInfoMap = {};
+  const songIds = (res.result.songs || []).map(song => song.id);
+
+  let formattedSongs = [];
   if (songIds.length > 0) {
     try {
-      qualityInfoMap = await getBatchMusicQualityInfo(songIds);
+      // 使用 getValidMusicItems 批量获取完整的歌曲详情，确保封面等字段完整
+      formattedSongs = await getValidMusicItems(songIds);
     } catch (error) {
-      console.error('[网易云] 批量获取音质信息失败:', error);
+      console.error('[网易云] 批量获取搜索歌曲详情失败:', error);
+      // 如果批量获取失败，降级使用原始数据
+      formattedSongs = (res.result.songs || []).map(formatMusicItem);
     }
   }
-  
-  // 格式化歌曲并附加音质信息
-  const songs = res.result.songs.map(song => 
-    formatMusicItemWithQuality(song, qualityInfoMap[song.id])
-  );
-  
+
   return {
     isEnd: res.result.songCount <= page * pageSize,
-    data: await Promise.all(songs),
+    data: formattedSongs,
   };
 }
 async function searchAlbum(query, page) {
