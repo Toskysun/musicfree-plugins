@@ -510,6 +510,13 @@ async function getLyric(musicItem) {
   };
 }
 async function getMusicInfo(musicItem) {
+  // 如果已经有完整的封面URL，直接返回，避免重复请求
+  if (musicItem.artwork && musicItem.artwork.startsWith('http')) {
+    return {
+      artwork: musicItem.artwork,
+    };
+  }
+
   const headers = {
     Referer: "https://y.music.163.com/",
     Origin: "https://y.music.163.com/",
