@@ -471,6 +471,63 @@ async function getArtistWorks(artistItem, page, type) {
   }
 }
 async function getLyric(musicItem) {
+  try {
+    // 使用正确的 API（支持罗马音）
+    const res = await (0, axios_1.default)({
+      url: "https://u.y.qq.com/cgi-bin/musicu.fcg",
+      method: "POST",
+      data: {
+        comm: {
+          ct: "19",
+          cv: "1859",
+          uin: "0",
+        },
+        req: {
+          method: "GetPlayLyricInfo",
+          module: "music.musichallSong.PlayLyricInfo",
+          param: {
+            format: "json",
+            crypt: 1,           // 启用加密
+            qrc: 1,             // qrc格式
+            qrc_t: 0,
+            roma: 1,            // ⭐ 请求罗马音
+            roma_t: 0,
+            trans: 1,           // 请求翻译
+            trans_t: 0,
+            songID: musicItem.id || musicItem.songid,
+            type: -1,
+          },
+        },
+      },
+      headers: {
+        referer: "https://y.qq.com",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+      },
+      xsrfCookieName: "XSRF-TOKEN",
+      withCredentials: true,
+    });
+
+    if (res.data?.code === 0 && res.data?.req?.code === 0) {
+      const data = res.data.req.data;
+
+      // 返回加密的 hex 字符串，应用层会自动解密
+      return {
+        rawLrc: data.lyric || undefined,        // 原文（加密）
+        translation: data.trans || undefined,    // 译文（加密）
+        romanization: data.roma || undefined,    // 罗马音（加密）✨
+      };
+    }
+
+    // API 失败，降级到旧 API
+    throw new Error("新 API 返回错误");
+  } catch (error) {
+    console.warn("[QQ音乐] 新 API 失败，降级到旧 API:", error.message);
+    return getLyricLegacy(musicItem);
+  }
+}
+
+// 旧 API（降级方案）
+async function getLyricLegacy(musicItem) {
   const result = (
     await (0, axios_1.default)({
       url: `http://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${
