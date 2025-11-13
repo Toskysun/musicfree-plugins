@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = require("axios");
 const he = require("he");
 const pageSize = 30;
+
 function artworkShort2Long(albumpicShort) {
   var _a;
   const firstSlashOfAlbum =
@@ -21,6 +22,49 @@ function artworkShort2Long(albumpicShort) {
         firstSlashOfAlbum
       )}`
     : undefined;
+}
+
+// Get artwork from KuWo pic server using song RID (returns Promise)
+function getPicByRid(rid) {
+  return axios_1.default.get(
+    `http://artistpicserver.kuwo.cn/pic.web?corp=kuwo&type=rid_pic&pictype=500&size=500&rid=${rid}`,
+    { timeout: 5000 }
+  )
+  .then(res => /^http/.test(res.data) ? res.data : null)
+  .catch(() => null);
+}
+
+// Get quality info by searching with musicId (returns Promise)
+function getQualityByMusicId(musicId, songName, artist) {
+  return axios_1.default.get('http://search.kuwo.cn/r.s', {
+    params: {
+      client: 'kt',
+      all: `${songName} ${artist}`,
+      pn: 0,
+      rn: 1,
+      uid: 2574109560,
+      ver: 'kwplayer_ar_8.5.4.2',
+      vipver: 1,
+      ft: 'music',
+      cluster: 0,
+      strategy: 2012,
+      encoding: 'utf8',
+      rformat: 'json',
+      vermerge: 1,
+      mobi: 1,
+    },
+    timeout: 5000
+  })
+  .then(res => {
+    if (res.data && res.data.abslist && res.data.abslist.length > 0) {
+      const song = res.data.abslist[0];
+      if (song.N_MINFO) {
+        return parseKuWoQualityInfo(song.N_MINFO);
+      }
+    }
+    return {};
+  })
+  .catch(() => ({}));
 }
 
 // 解析酷我音乐的N_MINFO字段获取精确音质信息
@@ -300,6 +344,17 @@ async function getArtistMusicWorks(artistItem, page) {
     })
   ).data;
   const songs = res.musiclist.map((_) => {
+    // Parse quality info from n_minfo or N_MINFO field
+    const qualities = parseKuWoQualityInfo(_.n_minfo || _.N_MINFO) || {};
+
+    // Provide fallback qualities if parsing failed
+    if (Object.keys(qualities).length === 0) {
+      const supportedQualities = ['128k', '320k', 'flac'];
+      supportedQualities.forEach(quality => {
+        qualities[quality] = {};
+      });
+    }
+
     return {
       id: _.musicrid,
       artwork: artworkShort2Long(_.web_albumpic_short),
@@ -309,6 +364,8 @@ async function getArtistMusicWorks(artistItem, page) {
       albumId: _.albumid,
       artistId: _.artistid,
       formats: _.formats,
+      qualities: qualities,
+      nMInfo: _.n_minfo || _.N_MINFO,
     };
   });
   return {
@@ -432,6 +489,18 @@ async function getAlbumInfo(albumItem) {
   ).data;
   const songs = res.musiclist.map((_) => {
     var _a;
+
+    // Parse quality info from n_minfo or N_MINFO field
+    const qualities = parseKuWoQualityInfo(_.n_minfo || _.N_MINFO) || {};
+
+    // Provide fallback qualities if parsing failed
+    if (Object.keys(qualities).length === 0) {
+      const supportedQualities = ['128k', '320k', 'flac'];
+      supportedQualities.forEach(quality => {
+        qualities[quality] = {};
+      });
+    }
+
     return {
       id: _.id,
       artwork:
@@ -442,6 +511,8 @@ async function getAlbumInfo(albumItem) {
       albumId: albumItem.id,
       artistId: _.artistid,
       formats: _.formats,
+      qualities: qualities,
+      nMInfo: _.n_minfo || _.N_MINFO,
     };
   });
   return {
@@ -469,8 +540,8 @@ async function getTopLists() {
     }),
   }));
 }
-async function getTopListDetail(topListItem) {
-  const res = await axios_1.default.get(`http://kbangserver.kuwo.cn/ksong.s`, {
+function getTopListDetail(topListItem) {
+  return axios_1.default.get(`http://kbangserver.kuwo.cn/ksong.s`, {
     params: {
       from: "pc",
       fmt: "json",
@@ -485,19 +556,50 @@ async function getTopListDetail(topListItem) {
       userid: 0,
       httpStatus: 1,
     },
-  });
-  return Object.assign(Object.assign({}, topListItem), {
-    musicList: res.data.musiclist.map((_) => {
-      return {
-        id: _.id,
-        title: he.decode(_.name || ""),
-        artist: he.decode(_.artist || ""),
-        album: he.decode(_.album || ""),
-        albumId: _.albumid,
-        artistId: _.artistid,
-        formats: _.formats,
-      };
-    }),
+  }).then(res => {
+    // Process all music items with their artwork and quality
+    return Promise.all(
+      res.data.musiclist.map((_) => {
+        const rid = _.musicrid || _.id;
+
+        // Get both artwork and quality in parallel
+        return Promise.all([
+          getPicByRid(rid),
+          getQualityByMusicId(_.id, _.name, _.artist)
+        ]).then(([artwork, qualities]) => {
+          // Fallback to other artwork sources if pic server fails
+          if (!artwork) {
+            artwork = _.albumpic
+              ? _.albumpic.replace('/120/', '/500/')
+              : (_.pic || artworkShort2Long(_.web_albumpic_short));
+          }
+
+          // If no qualities retrieved, provide default
+          if (Object.keys(qualities).length === 0) {
+            const supportedQualities = ['128k', '320k', 'flac'];
+            supportedQualities.forEach(quality => {
+              qualities[quality] = {};
+            });
+          }
+
+          return {
+            id: _.id,
+            artwork: artwork,
+            title: he.decode(_.name || ""),
+            artist: he.decode(_.artist || ""),
+            album: he.decode(_.album || ""),
+            albumId: _.albumid,
+            artistId: _.artistid,
+            formats: _.formats,
+            qualities: qualities,
+          };
+        });
+      })
+    ).then(musicList => {
+      return Object.assign(Object.assign({}, topListItem), {
+        musicList: musicList,
+      });
+    });
   });
 }
 async function getMusicSheetResponseById(id, page, pagesize = 50) {
@@ -659,35 +761,53 @@ async function getRecommendSheetsByTag(tag, page) {
     })),
   };
 }
-async function getMusicSheetInfo(sheet, page) {
-  const res = await getMusicSheetResponseById(sheet.id, page, pageSize);
-  return {
-    isEnd: page * pageSize >= res.total,
-    musicList: res.musiclist.map((_) => {
-      // 为歌单中的歌曲构建音质信息
-      const qualities = parseKuWoQualityInfo(_.N_MINFO) || {};
-      
-      // 如果没有解析到音质信息，提供基础音质作为降级方案
-      if (Object.keys(qualities).length === 0) {
-        const supportedQualities = ['128k', '320k', 'flac'];
-        supportedQualities.forEach(quality => {
-          qualities[quality] = {};
+function getMusicSheetInfo(sheet, page) {
+  return getMusicSheetResponseById(sheet.id, page, pageSize).then(res => {
+    // Process all music items with their artwork and quality
+    return Promise.all(
+      res.musiclist.map((_) => {
+        const rid = _.musicrid || _.id;
+
+        // Get both artwork and quality in parallel
+        return Promise.all([
+          getPicByRid(rid),
+          getQualityByMusicId(_.id, _.name, _.artist)
+        ]).then(([artwork, qualities]) => {
+          // Fallback to other artwork sources if pic server fails
+          if (!artwork) {
+            artwork = _.albumpic
+              ? _.albumpic.replace('/120/', '/500/')
+              : (_.pic || artworkShort2Long(_.web_albumpic_short));
+          }
+
+          // If no qualities retrieved, provide default
+          if (Object.keys(qualities).length === 0) {
+            const supportedQualities = ['128k', '320k', 'flac'];
+            supportedQualities.forEach(quality => {
+              qualities[quality] = {};
+            });
+          }
+
+          return {
+            id: _.id,
+            artwork: artwork,
+            title: he.decode(_.name || ""),
+            artist: he.decode(_.artist || ""),
+            album: he.decode(_.album || ""),
+            albumId: _.albumid,
+            artistId: _.artistid,
+            formats: _.formats,
+            qualities: qualities,
+          };
         });
-      }
-      
+      })
+    ).then(musicList => {
       return {
-        id: _.id,
-        title: he.decode(_.name || ""),
-        artist: he.decode(_.artist || ""),
-        album: he.decode(_.album || ""),
-        albumId: _.albumid,
-        artistId: _.artistid,
-        formats: _.formats,
-        qualities: qualities,
-        nMInfo: _.N_MINFO, // 保留原始信息用于调试
+        isEnd: page * pageSize >= res.total,
+        musicList: musicList,
       };
-    }),
-  };
+    });
+  });
 }
 async function getMediaSource(musicItem, quality) {
   try {
@@ -772,25 +892,42 @@ async function getMediaSource(musicItem, quality) {
     throw error;
   }
 }
-async function getMusicInfo(musicItem) {
-  const res = (
-    await axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
+function getMusicInfo(musicItem) {
+  // Priority 1: Use cached artwork from musicItem if available
+  if (musicItem.artwork) {
+    return Promise.resolve({
+      artwork: musicItem.artwork,
+    });
+  }
+
+  // Priority 2: Try to get artwork from KuWo pic server
+  const rid = musicItem.id;
+  return getPicByRid(rid).then(artwork => {
+    if (artwork) {
+      return { artwork: artwork };
+    }
+
+    // Priority 3: Fallback to API method
+    return axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
       params: {
         musicId: musicItem.id,
         httpStatus: 1,
       },
-    })
-  ).data;
-  const originalUrl = res.data.songinfo.pic;
-  let picUrl;
-  if (originalUrl.includes("starheads/")) {
-    picUrl = originalUrl.replace(/starheads\/\d+/, "starheads/800");
-  } else if (originalUrl.includes("albumcover/")) {
-    picUrl = originalUrl.replace(/albumcover\/\d+/, "albumcover/800");
-  }
-  return {
-    artwork: picUrl,
-  };
+    }).then(res => {
+      const originalUrl = res.data.songinfo.pic;
+      let picUrl;
+      if (originalUrl && originalUrl.includes("starheads/")) {
+        picUrl = originalUrl.replace(/starheads\/\d+/, "starheads/800");
+      } else if (originalUrl && originalUrl.includes("albumcover/")) {
+        picUrl = originalUrl.replace(/albumcover\/\d+/, "albumcover/800");
+      }
+      return {
+        artwork: picUrl || null,
+      };
+    }).catch(() => {
+      return { artwork: null };
+    });
+  });
 }
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;

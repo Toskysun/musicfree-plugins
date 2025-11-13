@@ -567,8 +567,41 @@ async function getTopListDetail(topListItem) {
       headers,
     }
   );
+
+  const songList = res.data.data.info;
+
+  // 提取hash列表用于批量获取音质信息
+  const hashList = songList.map(item => item.hash).filter(Boolean);
+
+  // 批量获取音质信息
+  let qualityInfoMap = {};
+  try {
+    if (hashList.length > 0) {
+      qualityInfoMap = await getBatchMusicQualityInfo(hashList);
+    }
+  } catch (error) {
+    console.error('[酷狗] 榜单音质信息获取失败:', error.message);
+  }
+
+  // 格式化歌曲列表并添加音质信息
+  const musicList = songList.map((song) => {
+    const formattedItem = formatMusicItem2(song);
+    // 添加音质信息
+    if (qualityInfoMap[song.hash]) {
+      formattedItem.qualities = qualityInfoMap[song.hash];
+    } else {
+      // 如果没有获取到音质信息，保留基础音质对象
+      formattedItem.qualities = {
+        '128k': {},
+        '320k': {},
+        'flac': {}
+      };
+    }
+    return formattedItem;
+  });
+
   return Object.assign(Object.assign({}, topListItem), {
-    musicList: res.data.data.info.map(formatMusicItem2),
+    musicList: musicList,
   });
 }
 
@@ -765,14 +798,38 @@ async function getAlbumInfo(albumItem, page = 1) {
       },
     })
   ).data;
+
+  const songList = res.data.info;
+
+  // 提取hash列表用于批量获取音质信息
+  const hashList = songList.map(item => item.hash).filter(Boolean);
+
+  // 批量获取音质信息
+  let qualityInfoMap = {};
+  try {
+    if (hashList.length > 0) {
+      qualityInfoMap = await getBatchMusicQualityInfo(hashList);
+    }
+  } catch (error) {
+    console.error('[酷狗] 专辑音质信息获取失败:', error.message);
+  }
+
   return {
     isEnd: page * 100 >= res.data.total,
     albumItem: {
       worksNum: res.data.total,
     },
-    musicList: res.data.info.map((_) => {
+    musicList: songList.map((_) => {
       var _a;
       const [artist, songname] = _.filename.split("-");
+
+      // 获取音质信息
+      const qualities = qualityInfoMap[_.hash] || {
+        '128k': {},
+        '320k': {},
+        'flac': {}
+      };
+
       return {
         id: _.hash,
         title: songname.trim(),
@@ -784,6 +841,7 @@ async function getAlbumInfo(albumItem, page = 1) {
         "320hash": _.HQFileHash,
         sqhash: _.SQFileHash,
         origin_hash: _.id,
+        qualities: qualities,
       };
     }),
   };
@@ -1006,9 +1064,39 @@ async function getArtistWorks(artistItem, page, type) {
         }
       )
     ).data;
+
+    const songList = res.data.info;
+
+    // 提取hash列表用于批量获取音质信息
+    const hashList = songList.map(item => item.hash).filter(Boolean);
+
+    // 批量获取音质信息
+    let qualityInfoMap = {};
+    try {
+      if (hashList.length > 0) {
+        qualityInfoMap = await getBatchMusicQualityInfo(hashList);
+      }
+    } catch (error) {
+      console.error('[酷狗] 歌手作品音质信息获取失败:', error.message);
+    }
+
     return {
       isEnd: page * 100 >= res.data.total,
-      data: res.data.info.map(formatArtistSongItem),
+      data: songList.map((song) => {
+        const formattedItem = formatArtistSongItem(song);
+        // 添加音质信息
+        if (qualityInfoMap[song.hash]) {
+          formattedItem.qualities = qualityInfoMap[song.hash];
+        } else {
+          // 如果没有获取到音质信息，保留基础音质对象
+          formattedItem.qualities = {
+            '128k': {},
+            '320k': {},
+            'flac': {}
+          };
+        }
+        return formattedItem;
+      }),
     };
   } else if (type === "album") {
     const res = (
