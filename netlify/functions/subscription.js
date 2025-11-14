@@ -141,7 +141,18 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // 从查询参数获取API Key（可选）
+    // 从查询参数获取音源类型（source 参数在前）
+    let source = event.queryStringParameters?.source || 'ikun-backup';
+
+    // 移除 source 末尾的 .json 后缀（如果存在）
+    if (source.endsWith('.json')) {
+      source = source.slice(0, -5);
+      console.log(`Removed .json suffix from source`);
+    }
+
+    console.log(`Using source: ${source}`);
+
+    // 从查询参数获取API Key（key 参数在后，可选）
     let key = event.queryStringParameters?.key;
 
     // 如果提供了 key，移除 .json 后缀
@@ -163,15 +174,23 @@ exports.handler = async (event, context) => {
     const plugins = scanPlugins();
 
     // 构建插件列表
-    // 需要 API KEY 的插件：如果有 key 则添加，否则不带参数
-    // 不需要 API KEY 的插件（Gitcode, Bilibili, 汽水音乐）：直接访问
-    const pluginsList = plugins.map(plugin => ({
-      name: plugin.name,
-      url: (plugin.requiresKey && key)
-        ? `${baseUrl}/plugins/${plugin.file}?key=${key}`
-        : `${baseUrl}/plugins/${plugin.file}`,
-      version: plugin.version
-    }));
+    // URL参数顺序：source 在前，key 在后
+    // 需要 API KEY 的插件：source + key（如果有）
+    // 不需要 API KEY 的插件：仅 source
+    const pluginsList = plugins.map(plugin => {
+      let url = `${baseUrl}/plugins/${plugin.file}?source=${source}`;
+
+      // 如果插件需要 key 且提供了 key，则添加 key 参数
+      if (plugin.requiresKey && key) {
+        url += `&key=${key}`;
+      }
+
+      return {
+        name: plugin.name,
+        url: url,
+        version: plugin.version
+      };
+    });
 
     // 收集客户端信息
     const clientInfo = {
@@ -180,9 +199,9 @@ exports.handler = async (event, context) => {
     };
 
     if (key) {
-      console.log(`Subscription request from IP: ${clientInfo.ip} with key: ${key.substring(0, 8)}...`);
+      console.log(`Subscription request from IP: ${clientInfo.ip} with source: ${source}, key: ${key.substring(0, 8)}...`);
     } else {
-      console.log(`Subscription request from IP: ${clientInfo.ip} without key (returning all plugins)`);
+      console.log(`Subscription request from IP: ${clientInfo.ip} with source: ${source}, without key`);
     }
 
     // 返回订阅数据

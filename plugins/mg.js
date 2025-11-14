@@ -1,6 +1,6 @@
-const API_URL = "http://music.ikun0014.top";
-const API_KEY = "YOUR_KEY";
-const UPDATE_URL = "https://musicfree-plugins.netlify.app/plugins/mg.js?key=YOUR_KEY";
+const API_URL = "{{API_URL}}";
+const API_KEY = "{{API_KEY}}";
+const UPDATE_URL = "{{UPDATE_URL}}";
 
 // 转换字节为可读格式
 function sizeFormate(size) {

@@ -7,6 +7,17 @@
 const fs = require('fs');
 const path = require('path');
 
+// 音源映射表
+const SOURCE_MAP = {
+  'ikun': 'https://api.ikunshare.com',
+  'ikun-backup': 'http://music.ikun0014.top',
+  'xinlan': 'https://source.shiqianjiang.cn/api/music',
+  'lingchuan': 'https://lc.guoyue2010.top/api/music'
+};
+
+// 默认音源（如果未指定）
+const DEFAULT_SOURCE = 'ikun-backup';
+
 // 需要 API KEY 的插件列表（原始5个插件）
 const PLUGINS_REQUIRE_KEY = ['wy.js', 'mg.js', 'kg.js', 'kw.js', 'qq.js'];
 
@@ -106,7 +117,23 @@ exports.handler = async (event, context) => {
     // 检查插件是否需要 API Key
     const requiresKey = PLUGINS_REQUIRE_KEY.includes(pluginName);
 
-    // 从查询参数获取 API Key
+    // 从查询参数获取音源类型（source 参数在前）
+    const source = event.queryStringParameters?.source || DEFAULT_SOURCE;
+
+    // 验证音源类型
+    if (!SOURCE_MAP[source]) {
+      console.error(`Invalid source: ${source}`);
+      return {
+        statusCode: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Invalid source type' })
+      };
+    }
+
+    const apiUrl = SOURCE_MAP[source];
+    console.log(`Using source: ${source} -> ${apiUrl}`);
+
+    // 从查询参数获取 API Key（key 参数在后）
     let key = event.queryStringParameters?.key;
 
     // 移除 key 末尾的 .json 后缀（如果存在）
@@ -133,23 +160,39 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 替换YOUR_KEY占位符
-    // - 如果提供了 key：替换为实际的 key
-    // - 如果插件需要 key 但未提供：替换为空字符串
-    // - 如果插件不需要 key：保持原样
+    // 替换占位符
+    // 1. 替换 {{API_URL}} 为实际的音源地址（所有插件都需要）
+    // 2. 替换 {{API_KEY}} 为实际的 key（仅需要 key 的插件）
+    // 3. 替换 {{UPDATE_URL}} 为完整的更新链接（包含 source 和 key）
     let modifiedContent = pluginContent;
 
+    // 替换 API_URL 占位符
+    modifiedContent = modifiedContent.replace(/\{\{API_URL\}\}/g, apiUrl);
+    console.log(`Replaced {{API_URL}} with: ${apiUrl}`);
+
+    // 替换 API_KEY 占位符
     if (requiresKey) {
       if (key) {
-        modifiedContent = pluginContent.replace(/YOUR_KEY/g, key);
-        console.log(`Serving plugin: ${pluginName} with key: ${key.substring(0, 8)}...`);
+        modifiedContent = modifiedContent.replace(/\{\{API_KEY\}\}/g, key);
+        console.log(`Serving plugin: ${pluginName} with source: ${source}, key: ${key.substring(0, 8)}...`);
       } else {
-        modifiedContent = pluginContent.replace(/YOUR_KEY/g, '');
-        console.log(`Serving plugin: ${pluginName} with YOUR_KEY replaced by empty string (no key provided)`);
+        modifiedContent = modifiedContent.replace(/\{\{API_KEY\}\}/g, '');
+        console.log(`Serving plugin: ${pluginName} with source: ${source}, {{API_KEY}} replaced by empty string (no key provided)`);
       }
     } else {
-      console.log(`Serving plugin: ${pluginName} (no key required)`);
+      console.log(`Serving plugin: ${pluginName} with source: ${source} (no key required)`);
     }
+
+    // 生成 UPDATE_URL（包含 source 和 key 参数）
+    const baseUrl = process.env.BASE_URL || process.env.URL || 'https://musicfree-plugins.netlify.app';
+    let updateUrl = `${baseUrl}/plugins/${pluginName}?source=${source}`;
+    if (requiresKey && key) {
+      updateUrl += `&key=${key}`;
+    }
+
+    // 替换 UPDATE_URL 占位符
+    modifiedContent = modifiedContent.replace(/\{\{UPDATE_URL\}\}/g, updateUrl);
+    console.log(`Replaced {{UPDATE_URL}} with: ${updateUrl}`);
 
     // 返回JavaScript内容
     return {

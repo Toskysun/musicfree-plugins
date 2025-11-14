@@ -358,6 +358,72 @@
             display: block;
         }
 
+        /* Source Selection Grid */
+        .source-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .source-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .source-card:hover {
+            transform: translateY(-5px);
+            background: var(--card-hover-bg);
+            border-color: rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        }
+
+        .source-card.selected {
+            border-color: rgba(102, 126, 234, 0.8);
+            background: var(--card-hover-bg);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .source-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .source-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .source-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .source-url {
+            font-size: 12px;
+            opacity: 0.7;
+            font-family: 'Courier New', monospace;
+        }
+
         /* Instructions */
         .steps {
             list-style: none;
@@ -494,6 +560,11 @@
                 gap: 15px;
             }
 
+            .source-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 10px;
+            }
+
             .theme-toggle {
                 width: 45px;
                 height: 45px;
@@ -533,16 +604,46 @@
             </div>
         </div>
 
-        <!-- API Key Input Card -->
+        <!-- API Source Selection Card -->
         <div class="card">
-            <h2>🔑 配置 API Key</h2>
+            <h2>🌐 选择音源类型</h2>
             <div class="input-group">
-                <label for="apiKey">请输入您的 API Key</label>
+                <label>请选择您的音源类型</label>
+                <div class="source-grid" id="sourceGrid">
+                    <div class="source-card" data-source="ikun" data-url="https://api.ikunshare.com">
+                        <div class="source-icon">🎵</div>
+                        <div class="source-name">ikun音源</div>
+                        <div class="source-url">api.ikunshare.com</div>
+                    </div>
+                    <div class="source-card" data-source="ikun-backup" data-url="http://music.ikun0014.top">
+                        <div class="source-icon">🔄</div>
+                        <div class="source-name">ikun备用</div>
+                        <div class="source-url">music.ikun0014.top</div>
+                    </div>
+                    <div class="source-card" data-source="xinlan" data-url="https://source.shiqianjiang.cn/api/music">
+                        <div class="source-icon">🌊</div>
+                        <div class="source-name">新澜音源</div>
+                        <div class="source-url">shiqianjiang.cn</div>
+                    </div>
+                    <div class="source-card" data-source="lingchuan" data-url="https://lc.guoyue2010.top/api/music">
+                        <div class="source-icon">🎼</div>
+                        <div class="source-name">聆川音源</div>
+                        <div class="source-url">guoyue2010.top</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Key Input Card -->
+        <div class="card" id="apiKeyCard" style="display: none;">
+            <h2>🔑 配置卡密</h2>
+            <div class="input-group">
+                <label for="apiKey">请输入您的卡密</label>
                 <div class="input-wrapper">
                     <input
                         type="password"
                         id="apiKey"
-                        placeholder="输入 API Key 并点击生成链接"
+                        placeholder="输入卡密并点击生成链接"
                         autocomplete="off"
                     >
                     <button class="btn" onclick="generateLinks()">生成链接</button>
@@ -550,7 +651,7 @@
             </div>
             <div class="warning-box">
                 <span style="font-size: 24px;">💡</span>
-                <span>没有 API Key？请访问 <strong>api.ikunshare.com</strong> 获取</span>
+                <span>已选择音源：<strong id="selectedSourceName"></strong> (<span id="selectedSourceUrl"></span>)</span>
             </div>
         </div>
 
@@ -585,8 +686,12 @@
             <h2>📖 使用说明</h2>
             <ul class="steps">
                 <li>
-                    <strong>输入 API Key</strong><br>
-                    在上方输入框中填入您的 API Key，然后点击"生成链接"按钮
+                    <strong>选择音源类型</strong><br>
+                    从4个音源选项中选择一个您想使用的音源（ikun音源、ikun备用、新澜音源、聆川音源）
+                </li>
+                <li>
+                    <strong>输入卡密</strong><br>
+                    在输入框中填入您的卡密，然后点击"生成链接"按钮
                 </li>
                 <li>
                     <strong>复制订阅链接</strong><br>
@@ -648,6 +753,9 @@
     </div>
 
     <script>
+        // Global state
+        let selectedSource = null;
+
         // Plugin Configuration
         // requiresKey: true - 需要 API KEY 的插件（原始5个）
         // requiresKey: false - 不需要 API KEY 的插件（新增3个）
@@ -662,6 +770,38 @@
             { name: 'Gitcode', file: 'git.js', version: '0.2.0', icon: '🔧', requiresKey: false }
         ];
 
+        // Initialize source selection
+        function initSourceSelection() {
+            const sourceCards = document.querySelectorAll('.source-card');
+            sourceCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // Remove selected class from all cards
+                    sourceCards.forEach(c => c.classList.remove('selected'));
+                    // Add selected class to clicked card
+                    this.classList.add('selected');
+
+                    // Store selected source
+                    selectedSource = {
+                        name: this.querySelector('.source-name').textContent,
+                        url: this.dataset.url,
+                        source: this.dataset.source
+                    };
+
+                    // Update selected source info
+                    document.getElementById('selectedSourceName').textContent = selectedSource.name;
+                    document.getElementById('selectedSourceUrl').textContent = selectedSource.url;
+
+                    // Show API Key card
+                    document.getElementById('apiKeyCard').style.display = 'block';
+
+                    // Scroll to API Key card
+                    document.getElementById('apiKeyCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                    showToast('已选择音源：' + selectedSource.name, '✅');
+                });
+            });
+        }
+
         // Get Base URL
         function getBaseUrl() {
             return window.location.origin;
@@ -669,14 +809,24 @@
 
         // Generate Links
         function generateLinks() {
+            // Check if source is selected
+            if (!selectedSource) {
+                showToast('请先选择音源类型！', '⚠️');
+                return;
+            }
+
             const apiKey = document.getElementById('apiKey').value.trim();
             const baseUrl = getBaseUrl();
 
             // Generate subscription URL
-            // 如果有 key 则添加 key 参数，否则直接生成不带参数的 URL
-            const subscriptionUrl = apiKey
-                ? `${baseUrl}/api/subscription.json?key=${apiKey}.json`
-                : `${baseUrl}/api/subscription.json`;
+            // 参数顺序：source 在前，key 在后
+            // 最后一个参数值必须有 .json 后缀
+            let subscriptionUrl;
+            if (apiKey) {
+                subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}&key=${apiKey}.json`;
+            } else {
+                subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}.json`;
+            }
             document.getElementById('subscriptionUrl').textContent = subscriptionUrl;
 
             // Show sections
@@ -695,14 +845,13 @@
             pluginGrid.innerHTML = '';
 
             PLUGINS.forEach(plugin => {
-                // 根据插件类型和是否有 key 生成不同的URL
-                // 需要 API KEY 的插件：如果有 key 则添加，否则不带参数
-                // 不需要 API KEY 的插件：直接访问
-                let pluginUrl;
+                // 生成插件URL
+                // 参数顺序：source 在前，key 在后
+                let pluginUrl = `${baseUrl}/plugins/${plugin.file}?source=${selectedSource.source}`;
+
+                // 如果插件需要 key 且提供了 key，则添加 key 参数
                 if (plugin.requiresKey && apiKey) {
-                    pluginUrl = `${baseUrl}/plugins/${plugin.file}?key=${apiKey}`;
-                } else {
-                    pluginUrl = `${baseUrl}/plugins/${plugin.file}`;
+                    pluginUrl += `&key=${apiKey}`;
                 }
 
                 const keyBadgeContent = plugin.requiresKey
@@ -832,8 +981,9 @@
             }
         });
 
-        // Initialize Theme
+        // Initialize Theme and Source Selection
         loadTheme();
+        initSourceSelection();
     </script>
 </body>
 </html>
