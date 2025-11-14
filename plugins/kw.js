@@ -70,46 +70,18 @@ function getQualityByMusicId(musicId, songName, artist) {
 // 解析酷我音乐的N_MINFO字段获取精确音质信息
 function parseKuWoQualityInfo(nMInfo) {
   if (!nMInfo) return {};
-  
+
   const qualities = {};
   const regExp = /level:(\w+),bitrate:(\d+),format:(\w+),size:([\w.]+)/;
-  
+
   const infoArr = nMInfo.split(';');
   for (let info of infoArr) {
     const match = info.match(regExp);
     if (match) {
       const [, level, bitrate, format, size] = match;
       const bitrateNum = parseInt(bitrate);
-      
+
       switch (bitrateNum) {
-        case 20900:
-          qualities['master'] = {
-            size: size.toUpperCase(),
-            bitrate: 2304000,
-            format: format
-          };
-          break;
-        case 20501:
-          qualities['atmos_plus'] = {
-            size: size.toUpperCase(),
-            bitrate: 1411000,
-            format: format
-          };
-          break;
-        case 20201:
-          qualities['atmos'] = {
-            size: size.toUpperCase(),
-            bitrate: 1411000,
-            format: format
-          };
-          break;
-        case 4000:
-          qualities['hires'] = {
-            size: size.toUpperCase(),
-            bitrate: 2304000,
-            format: format
-          };
-          break;
         case 2000:
           qualities['flac'] = {
             size: size.toUpperCase(),
@@ -134,7 +106,7 @@ function parseKuWoQualityInfo(nMInfo) {
       }
     }
   }
-  
+
   return qualities;
 }
 
@@ -437,32 +409,183 @@ function sortLrcArr(arr) {
 }
 
 function transformLrc(lrclist) {
-  return lrclist.map((l) => `[${l.time}]${l.lineLyric}`).join("\n");
+  return lrclist.map((l) => {
+    // Convert seconds to [mm:ss.xx] format
+    const timeInSeconds = parseFloat(l.time);
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = (timeInSeconds % 60).toFixed(2);
+    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
+    return `[${formattedTime}]${l.lineLyric}`;
+  }).join("\n");
 }
+
+// 构建用于歌词接口的加密参数
+function buildParams(id, isGetLyricx) {
+  try {
+    let params = `user=12345,web,web,web&requester=localhost&req=1&rid=MUSIC_${id}`;
+    if (isGetLyricx) params += '&lrcx=1';
+
+    const key = 'yeelion';
+    const keyLen = key.length;
+
+    // 使用 TextEncoder 替代 Buffer (React Native 兼容)
+    const encoder = new TextEncoder();
+    const keyBytes = encoder.encode(key);
+    const paramsBytes = encoder.encode(params);
+
+    const output = new Uint8Array(paramsBytes.length);
+    for (let i = 0; i < paramsBytes.length; i++) {
+      output[i] = paramsBytes[i] ^ keyBytes[i % keyLen];
+    }
+
+    // 转换为 base64
+    // 在 React Native 中可能需要使用 btoa 或者其他方法
+    if (typeof btoa !== 'undefined') {
+      // 浏览器环境
+      return btoa(String.fromCharCode.apply(null, output));
+    } else if (typeof Buffer !== 'undefined') {
+      // Node.js 环境
+      return Buffer.from(output).toString('base64');
+    } else {
+      // 降级方案：手动实现 base64 编码
+      const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let result = '';
+      for (let i = 0; i < output.length; i += 3) {
+        const a = output[i];
+        const b = i + 1 < output.length ? output[i + 1] : 0;
+        const c = i + 2 < output.length ? output[i + 2] : 0;
+
+        result += base64Chars[(a >> 2) & 0x3F];
+        result += base64Chars[((a << 4) | (b >> 4)) & 0x3F];
+        result += i + 1 < output.length ? base64Chars[((b << 2) | (c >> 6)) & 0x3F] : '=';
+        result += i + 2 < output.length ? base64Chars[c & 0x3F] : '=';
+      }
+      return result;
+    }
+  } catch (error) {
+    console.error('[酷我] buildParams 失败:', error);
+    throw error;
+  }
+}
+
+
+// 将 ArrayBuffer/Uint8Array 转换为 base64 (React Native 兼容)
+function arrayBufferToBase64(buffer) {
+  try {
+    let uint8Array;
+    if (buffer instanceof ArrayBuffer) {
+      uint8Array = new Uint8Array(buffer);
+    } else if (buffer instanceof Uint8Array) {
+      uint8Array = buffer;
+    } else if (typeof buffer === 'string') {
+      // 如果已经是字符串，尝试转为字节数组
+      const encoder = new TextEncoder();
+      uint8Array = encoder.encode(buffer);
+    } else if (typeof Buffer !== 'undefined' && buffer instanceof Buffer) {
+      // 如果是 Buffer，转换为 Uint8Array
+      uint8Array = new Uint8Array(buffer);
+    } else {
+      throw new Error('Unsupported data type');
+    }
+
+    // 优先使用 btoa (浏览器/React Native)
+    if (typeof btoa !== 'undefined') {
+      const binary = String.fromCharCode.apply(null, uint8Array);
+      return btoa(binary);
+    } else if (typeof Buffer !== 'undefined') {
+      // 降级到 Buffer (Node.js)
+      return Buffer.from(uint8Array).toString('base64');
+    } else {
+      // 手动实现 base64 编码
+      const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let result = '';
+      for (let i = 0; i < uint8Array.length; i += 3) {
+        const a = uint8Array[i];
+        const b = i + 1 < uint8Array.length ? uint8Array[i + 1] : 0;
+        const c = i + 2 < uint8Array.length ? uint8Array[i + 2] : 0;
+
+        result += base64Chars[(a >> 2) & 0x3F];
+        result += base64Chars[((a << 4) | (b >> 4)) & 0x3F];
+        result += i + 1 < uint8Array.length ? base64Chars[((b << 2) | (c >> 6)) & 0x3F] : '=';
+        result += i + 2 < uint8Array.length ? base64Chars[c & 0x3F] : '=';
+      }
+      return result;
+    }
+  } catch (error) {
+    console.error('[酷我] arrayBufferToBase64 失败:', error);
+    throw error;
+  }
+}
+
 
 async function getLyric(musicItem) {
-  const res = (
-    await axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
-      params: {
-        musicId: musicItem.id,
-        httpStatus: 1,
-      },
-    })
-  ).data;
-  const list = res.data.lrclist;
+  const songId = musicItem.id;
+  console.log(`[酷我] getLyric 被调用, 歌曲ID: ${songId}`);
 
-  if (!list || list.length === 0) {
-    return { rawLrc: "" };
+  // 使用新接口 - 返回加密数据给应用层解密
+  const encryptedParams = buildParams(songId, false); // lrcx=0 获取普通歌词
+  console.log(`[酷我] buildParams 成功: ${encryptedParams.substring(0, 20)}...`);
+
+  try {
+    console.log(`[酷我] 开始请求新接口`);
+    const res = await axios_1.default.get(
+      `http://newlyric.kuwo.cn/newlyric.lrc?${encryptedParams}`,
+      {
+        responseType: 'arraybuffer',
+        timeout: 10000
+      }
+    );
+
+    console.log(`[酷我] 新接口响应收到, 数据类型: ${typeof res.data}, 长度: ${res.data?.byteLength || res.data?.length || 0}`);
+
+    // 使用兼容的 base64 转换函数
+    const base64Data = arrayBufferToBase64(res.data);
+
+    console.log(`[酷我] 新接口成功, 返回 ${base64Data.length} 字符的 base64 数据`);
+    console.log(`[酷我] base64 前50字符: ${base64Data.substring(0, 50)}`);
+
+    return {
+      rawLrc: base64Data
+    };
+  } catch (error) {
+    console.error(`[酷我] 新歌词接口获取失败: ${error.message}`);
+    console.error(`[酷我] 错误堆栈:`, error.stack);
   }
 
-  // 分离原文和译文
-  const lrcInfo = sortLrcArr(list);
+  // 如果新接口失败，尝试旧接口作为备用
+  try {
+    const res = (
+      await axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
+        params: {
+          musicId: songId,
+          httpStatus: 1,
+        },
+      })
+    ).data;
 
-  return {
-    rawLrc: transformLrc(lrcInfo.lrc),
-    translation: lrcInfo.lrcT.length > 0 ? transformLrc(lrcInfo.lrcT) : undefined,
-  };
+    if (res.status === 200 && res.data && res.data.lrclist) {
+      const list = res.data.lrclist;
+
+      if (!list || list.length === 0) {
+        return { rawLrc: "" };
+      }
+
+      // 分离原文和译文
+      const lrcInfo = sortLrcArr(list);
+
+      return {
+        rawLrc: transformLrc(lrcInfo.lrc),
+        translation: lrcInfo.lrcT.length > 0 ? transformLrc(lrcInfo.lrcT) : undefined,
+      };
+    }
+  } catch (error) {
+    console.error(`[酷我] 旧歌词接口获取失败: ${error.message}`);
+  }
+
+  // 如果所有方法都失败，返回空歌词
+  return { rawLrc: "" };
 }
+
 async function getAlbumInfo(albumItem) {
   const res = (
     await (0, axios_1.default)({
@@ -838,16 +961,11 @@ async function getMediaSource(musicItem, quality) {
       }
     }
     
-    // 映射音质参数 - 支持所有酷我音质等级
+    // 映射音质参数 - 最高支持到FLAC
     const qualityMap = {
       '128k': '128k',
       '320k': '320k',
-      'flac': 'flac',
-      'flac24bit': 'flac24bit',
-      'hires': 'hires',
-      'atmos': 'atmos',
-      'atmos_plus': 'atmos_plus',
-      'master': 'master'
+      'flac': 'flac'
     };
     
     const qualityParam = qualityMap[quality] || '320k';
@@ -990,12 +1108,12 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "酷我音乐",
   author: "Toskysun",
-  version: "0.2.2",
+  version: "0.2.3",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
-  // 声明插件支持的音质列表（基于酷我音乐实际提供的音质）
-  supportedQualities: ["128k", "320k", "flac", "hires", "atmos", "atmos_plus", "master"],
+  // 声明插件支持的音质列表（最高到FLAC）
+  supportedQualities: ["128k", "320k", "flac"],
   hints: {
     importMusicSheet: [
       "酷我APP：自建歌单-分享-复制试听链接，直接粘贴即可",
