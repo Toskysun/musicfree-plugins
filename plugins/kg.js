@@ -413,7 +413,7 @@ async function searchArtist(query, page) {
         },
       })
     ).data;
-    
+
     // 检查响应结构
     if (!res || res.status !== 1 || !res.data) {
       console.error('[酷狗] 歌手搜索失败:', res);
@@ -422,15 +422,46 @@ async function searchArtist(query, page) {
         data: [],
       };
     }
-    
-    // 数据直接在res.data数组中
-    const artists = res.data.map((_) => ({
-      name: _.singername,
-      id: _.singerid,
-      avatar: _.sizeablesingerimg ? _.sizeablesingerimg.replace("{size}", "400") : undefined,
-      worksNum: _.songcount || 0,
-    }));
-    
+
+    // 批量获取歌手详细信息
+    const artistInfoPromises = res.data.map((_) =>
+      axios_1.default
+        .get("http://mobilecdn.kugou.com/api/v3/singer/info", {
+          headers,
+          params: {
+            version: 9108,
+            singerid: _.singerid,
+            area_code: 1,
+          },
+          timeout: 5000,
+        })
+        .then((infoRes) => ({
+          name: _.singername,
+          id: _.singerid,
+          avatar:
+            infoRes.data && infoRes.data.data && infoRes.data.data.imgurl
+              ? infoRes.data.data.imgurl.replace("{size}", "400")
+              : undefined,
+          description:
+            infoRes.data && infoRes.data.data && infoRes.data.data.profile
+              ? infoRes.data.data.profile
+              : undefined,
+          worksNum:
+            infoRes.data && infoRes.data.data && infoRes.data.data.songcount
+              ? infoRes.data.data.songcount
+              : 0,
+        }))
+        .catch(() => ({
+          name: _.singername,
+          id: _.singerid,
+          avatar: undefined,
+          description: undefined,
+          worksNum: 0,
+        }))
+    );
+
+    const artists = await Promise.all(artistInfoPromises);
+
     return {
       isEnd: res.data.length < pageSize,
       data: artists,
@@ -877,9 +908,11 @@ function formatArtistSongItem(_) {
     album: (_a = _.album_name) !== null && _a !== void 0 ? _a : _.remark,
     album_id: _.album_id,
     album_audio_id: _.album_audio_id,
-    artwork: _.album_sizable_cover
-      ? _.album_sizable_cover.replace("{size}", "400")
-      : undefined,
+    artwork: _.trans_param?.union_cover
+      ? _.trans_param.union_cover.replace("{size}", "400")
+      : (_.album_sizable_cover
+        ? _.album_sizable_cover.replace("{size}", "400")
+        : undefined),
     duration: _.duration,
     "320hash": _.HQFileHash || _["320hash"],
     sqhash: _.SQFileHash || _.sqhash,
@@ -1119,7 +1152,7 @@ async function getArtistWorks(artistItem, page, type) {
       data: res.data.info.map((_) => ({
         id: _.albumid,
         title: _.albumname,
-        artwork: _.img ? _.img.replace("{size}", "400") : undefined,
+        artwork: _.imgurl ? _.imgurl.replace("{size}", "400") : undefined,
         date: _.publishtime ? _.publishtime.slice(0, 10) : undefined,
         artist: artistItem.name,
       })),
@@ -1254,6 +1287,9 @@ async function getSpecialMusicList(specialId, page) {
         album: song.album_name || "",
         album_id: song.album_id,
         album_audio_id: song.album_audio_id,
+        artwork: song.trans_param?.union_cover
+          ? song.trans_param.union_cover.replace("{size}", "400")
+          : undefined,
         duration: song.duration,
         "320hash": song["320hash"],
         sqhash: song.sqhash,
