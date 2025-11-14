@@ -765,6 +765,7 @@ async function getMediaSource(musicItem, quality) {
         {
           headers: {
             "X-Request-Key": API_KEY,
+            "X-API-Key": API_KEY,
             "User-Agent": "MusicFree/2.0.0"
           },
           "timeout": 10000
