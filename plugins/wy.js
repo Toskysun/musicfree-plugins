@@ -271,10 +271,11 @@ function formatMusicItem(_) {
     title: _.name,
     artist: (_.ar || _.artists)[0].name,
     album: album === null || album === void 0 ? void 0 : album.name,
+    albumId: album === null || album === void 0 ? void 0 : album.id,
     url: `https://share.duanx.cn/url/wy/${_.id}/128k`,
     qualities: qualities,
     copyrightId: _ === null || _ === void 0 ? void 0 : _.copyrightId,
-    privilege: _.privilege, // 保留privilege字段用于音质验证
+    privilege: _.privilege,
   };
 }
 
@@ -289,6 +290,7 @@ async function formatMusicItemWithQuality(_, qualityInfo = {}) {
     title: _.name,
     artist: (_.ar || _.artists)[0].name,
     album: album === null || album === void 0 ? void 0 : album.name,
+    albumId: album === null || album === void 0 ? void 0 : album.id,
     url: `https://share.duanx.cn/url/wy/${_.id}/128k`,
     qualities: qualities,
     copyrightId: _ === null || _ === void 0 ? void 0 : _.copyrightId,
