@@ -22,6 +22,28 @@ function formatImgUrl(img) {
   return 'http://d.musicapp.migu.cn' + img;
 }
 
+// 获取高清封面
+async function getHighQualityPic(songId) {
+  try {
+    const res = await axios_1.default.get(
+      `http://music.migu.cn/v3/api/music/audioPlayer/getSongPic?songId=${songId}`,
+      {
+        headers: {
+          Referer: 'http://music.migu.cn/v3/music/player/audio?from=migu',
+        },
+      }
+    );
+    if (res.data && res.data.returnCode === '000000') {
+      let url = res.data.largePic || res.data.mediumPic || res.data.smallPic;
+      if (url && !/^https?:/.test(url)) url = 'http:' + url;
+      return url;
+    }
+  } catch (error) {
+    // 忽略错误
+  }
+  return null;
+}
+
 // MD5加密函数
 function toMD5(str) {
   return CryptoJS.MD5(str).toString();
@@ -505,50 +527,160 @@ async function getArtistWorks(artistItem, page, type) {
 }
 // 咪咕 MRC 解密和解析函数
 const { Buffer } = require('buffer');
-const pako = require('pako');
 
-// MRC 解密密钥
-const MRC_KEY = Buffer.from([
-  0x40, 0x47, 0x61, 0x77, 0x5E, 0x32, 0x74, 0x47,
-  0x51, 0x36, 0x31, 0x2D, 0xCE, 0xD2, 0x6E, 0x69
-]);
+// TEA 解密常量和密钥
+const DELTA = 2654435769n;
+const MIN_LENGTH = 32;
+const keyArr = [
+  27303562373562475n,
+  18014862372307051n,
+  22799692160172081n,
+  34058940340699235n,
+  30962724186095721n,
+  27303523720101991n,
+  27303523720101998n,
+  31244139033526382n,
+  28992395054481524n,
+];
 
-function decryptMrc(base64Content) {
-  try {
-    const encrypted = Buffer.from(base64Content, 'base64');
-    const decrypted = Buffer.alloc(encrypted.length);
+// 辅助函数
+const MAX = 9223372036854775807n;
+const MIN = -9223372036854775808n;
+const toLong = (str) => {
+  const num = typeof str == 'string' ? BigInt('0x' + str) : str;
+  if (num > MAX) return toLong(num - (1n << 64n));
+  else if (num < MIN) return toLong(num + (1n << 64n));
+  return num;
+};
 
-    for (let i = 0; i < encrypted.length; i++) {
-      decrypted[i] = encrypted[i] ^ MRC_KEY[i % MRC_KEY.length];
+const toBigintArray = (data) => {
+  const length = Math.floor(data.length / 16);
+  const jArr = Array(length);
+  for (let i = 0; i < length; i++) {
+    jArr[i] = toLong(data.substring(i * 16, i * 16 + 16));
+  }
+  return jArr;
+};
+
+const longToBytes = (l) => {
+  const result = Buffer.alloc(8);
+  for (let i = 0; i < 8; i++) {
+    result[i] = parseInt(l & 0xffn);
+    l >>= 8n;
+  }
+  return result;
+};
+
+const longArrToString = (data) => {
+  const arrayList = [];
+  for (const j of data) arrayList.push(longToBytes(j).toString('utf16le'));
+  return arrayList.join('');
+};
+
+const teaDecrypt = (data, key) => {
+  const length = data.length;
+  const lengthBigint = BigInt(length);
+  if (length >= 1) {
+    let j2 = data[0];
+    let j3 = toLong((6n + 52n / lengthBigint) * DELTA);
+    while (true) {
+      let j4 = j3;
+      if (j4 == 0n) break;
+      let j5 = toLong(3n & toLong(j4 >> 2n));
+      let j6 = lengthBigint;
+      while (true) {
+        j6--;
+        if (j6 > 0n) {
+          let j7 = data[j6 - 1n];
+          let i = j6;
+          j2 = toLong(
+            data[i] -
+              (toLong(toLong(j2 ^ j4) + toLong(j7 ^ key[toLong(toLong(3n & j6) ^ j5)])) ^
+                toLong(
+                  toLong(toLong(j7 >> 5n) ^ toLong(j2 << 2n)) +
+                    toLong(toLong(j2 >> 3n) ^ toLong(j7 << 4n))
+                ))
+          );
+          data[i] = j2;
+        } else break;
+      }
+      let j8 = data[lengthBigint - 1n];
+      j2 = toLong(
+        data[0n] -
+          toLong(
+            toLong(toLong(key[toLong(toLong(j6 & 3n) ^ j5)] ^ j8) + toLong(j2 ^ j4)) ^
+              toLong(
+                toLong(toLong(j8 >> 5n) ^ toLong(j2 << 2n)) +
+                  toLong(toLong(j2 >> 3n) ^ toLong(j8 << 4n))
+              )
+          )
+      );
+      data[0] = j2;
+      j3 = toLong(j4 - DELTA);
     }
+  }
+  return data;
+};
 
-    return decrypted.toString('utf-8');
+// MRC 解密函数
+function decryptMrc(data) {
+  if (data == null || data.length < MIN_LENGTH) return data;
+  try {
+    return longArrToString(teaDecrypt(toBigintArray(data), keyArr));
   } catch (error) {
     console.error('[咪咕] MRC解密失败:', error);
     return null;
   }
 }
 
-function parseMrc(mrcContent) {
+// MRC 解析函数（生成普通歌词和逐字歌词）
+const mrcRegexps = {
+  lineTime: /^\s*\[(\d+),\d+\]/,
+  wordTime: /\(\d+,\d+\)/,
+  wordTimeAll: /(\(\d+,\d+\))/g,
+};
+
+function parseMrc(str) {
+  if (!str) return null;
   try {
-    const lines = mrcContent.split(/\r\n|\r|\n/);
+    str = str.replace(/\r/g, '');
+    const lines = str.split('\n');
+    const lxlrcLines = [];
     const lrcLines = [];
 
     for (const line of lines) {
-      const match = line.match(/^\s*\[(\d+),\d+\]/);
-      if (match) {
-        const startTime = parseInt(match[1]);
-        let ms = startTime % 1000;
-        let totalSeconds = Math.floor(startTime / 1000);
-        let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        let s = (totalSeconds % 60).toString().padStart(2, '0');
-        const timeTag = `[${m}:${s}.${ms}]`;
-        const words = line.replace(/^\s*\[\d+,\d+\]/, '').replace(/\(\d+,\d+\)/g, '');
-        lrcLines.push(`${timeTag}${words}`);
-      }
+      if (line.length < 6) continue;
+      let result = mrcRegexps.lineTime.exec(line);
+      if (!result) continue;
+
+      const startTime = parseInt(result[1]);
+      let time = startTime;
+      let ms = time % 1000;
+      time /= 1000;
+      let m = parseInt(time / 60).toString().padStart(2, '0');
+      time %= 60;
+      let s = parseInt(time).toString().padStart(2, '0');
+      time = `${m}:${s}.${ms}`;
+
+      let words = line.replace(mrcRegexps.lineTime, '');
+      lrcLines.push(`[${time}]${words.replace(mrcRegexps.wordTimeAll, '')}`);
+
+      // 生成逐字歌词
+      let times = words.match(mrcRegexps.wordTimeAll);
+      if (!times) continue;
+      times = times.map((t) => {
+        const r = /\((\d+),(\d+)\)/.exec(t);
+        return `<${parseInt(r[1]) - startTime},${r[2]}>`;
+      });
+      const wordArr = words.split(mrcRegexps.wordTime);
+      const newWords = times.map((t, index) => `${t}${wordArr[index]}`).join('');
+      lxlrcLines.push(`[${time}]${newWords}`);
     }
 
-    return lrcLines.join('\n');
+    return {
+      lyric: lrcLines.join('\n'),
+      lxlyric: lxlrcLines.join('\n'),
+    };
   } catch (error) {
     console.error('[咪咕] MRC解析失败:', error);
     return null;
@@ -597,24 +729,29 @@ async function fetchText(url) {
 
 async function getLyric(musicItem) {
   try {
-    // 获取歌曲详细信息（包含歌词URL）
-    const musicInfo = await getMiGuMusicInfo(musicItem.copyrightId);
+    // 优先使用歌曲信息中已有的歌词URL
+    const mrcUrl = musicItem.mrcUrl;
+    const lrcUrl = musicItem.lrcUrl;
+    const trcUrl = musicItem.trcUrl;
 
-    if (!musicInfo) {
+    // 如果歌曲信息中没有歌词URL，获取歌曲详细信息
+    let musicInfo = null;
+    if (!mrcUrl && !lrcUrl) {
+      musicInfo = await getMiGuMusicInfo(musicItem.copyrightId);
+    }
+
+    const finalMrcUrl = mrcUrl || musicInfo?.mrcUrl;
+    const finalLrcUrl = lrcUrl || musicInfo?.lrcUrl;
+    const finalTrcUrl = trcUrl || musicInfo?.trcUrl;
+
+    if (!finalMrcUrl && !finalLrcUrl) {
       // 降级到原有API
       const headers = {
         Accept: "application/json, text/javascript, */*; q=0.01",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-        Connection: "keep-alive",
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         Host: "m.music.migu.cn",
         Referer: `https://m.music.migu.cn/migu/l/?s=149&p=163&c=5200&j=l&id=${musicItem.copyrightId}`,
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
         "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Mobile Safari/537.36 Edg/89.0.774.68",
-        "X-Requested-With": "XMLHttpRequest",
       };
       const result = (
         await axios_1.default.get(
@@ -628,16 +765,17 @@ async function getLyric(musicItem) {
         )
       ).data;
       return {
-        rawLrc: result.data.lyricLrc,
+        rawLrc: result.data?.lyricLrc || '',
       };
     }
 
-    // 并行获取原文和译文
+    // 并行获取歌词和译文
     let lyricPromise;
 
-    // 优先使用 MRC，其次 LRC
-    if (musicInfo.mrcUrl) {
-      lyricPromise = fetchText(musicInfo.mrcUrl).then(content => {
+    // 优先使用 MRC（逐字歌词），其次 LRC
+    if (finalMrcUrl) {
+      lyricPromise = fetchText(finalMrcUrl).then(content => {
+        if (!content) return null;
         const decrypted = decryptMrc(content);
         if (decrypted) {
           const parsed = parseMrc(decrypted);
@@ -645,27 +783,31 @@ async function getLyric(musicItem) {
         }
         return null;
       });
-    } else if (musicInfo.lrcUrl) {
-      lyricPromise = fetchText(musicInfo.lrcUrl);
+    } else if (finalLrcUrl) {
+      lyricPromise = fetchText(finalLrcUrl).then(text => ({
+        lyric: text,
+        lxlyric: '',
+      }));
     }
 
     // 获取译文
-    const translationPromise = musicInfo.trcUrl
-      ? fetchText(musicInfo.trcUrl)
+    const translationPromise = finalTrcUrl
+      ? fetchText(finalTrcUrl)
       : Promise.resolve('');
 
     if (!lyricPromise) {
       return { rawLrc: '' };
     }
 
-    const [lyric, translation] = await Promise.all([lyricPromise, translationPromise]);
+    const [lyricResult, translation] = await Promise.all([lyricPromise, translationPromise]);
 
-    if (!lyric) {
+    if (!lyricResult) {
       return { rawLrc: '' };
     }
 
+    // 返回歌词结果
     return {
-      rawLrc: lyric,
+      rawLrc: lyricResult.lyric || '',
       translation: translation || undefined,
     };
   } catch (error) {
@@ -678,7 +820,6 @@ async function getMusicSheetInfo(sheet, page) {
     // 处理歌单ID
     let sheetId = sheet.id || sheet;
     
-    // 使用ikun-music-mobile的API获取歌单信息（MIGUM2.0）
     try {
       const url = `https://app.c.nf.migu.cn/MIGUM2.0/v1.0/user/queryMusicListSongs.do?musicListId=${sheetId}&pageNo=${page}&pageSize=30`;
       
@@ -694,7 +835,6 @@ async function getMusicSheetInfo(sheet, page) {
         const musicList = res.data.list.map((item) => {
           const qualities = {};
           
-          // 解析newRateFormats获取音质信息（与ikun-music-mobile一致）
           if (item.newRateFormats && Array.isArray(item.newRateFormats)) {
             item.newRateFormats.forEach((format) => {
               const size = format.size || format.androidSize || format.fileSize;
@@ -1117,193 +1257,336 @@ async function importMusicSheet(urlLike) {
       };
     });
 }
+// 榜单列表
+const boardList = [
+  { id: '27553319', name: '新歌榜', bangid: '27553319' },
+  { id: '27186466', name: '热歌榜', bangid: '27186466' },
+  { id: '27553408', name: '原创榜', bangid: '27553408' },
+  { id: '75959118', name: '音乐风向榜', bangid: '75959118' },
+  { id: '76557036', name: '彩铃分贝榜', bangid: '76557036' },
+  { id: '76557745', name: '会员臻爱榜', bangid: '76557745' },
+  { id: '23189800', name: '港台榜', bangid: '23189800' },
+  { id: '23189399', name: '内地榜', bangid: '23189399' },
+  { id: '19190036', name: '欧美榜', bangid: '19190036' },
+  { id: '83176390', name: '国风金曲榜', bangid: '83176390' },
+];
+
 async function getTopLists() {
-  const jianjiao = {
-    title: "咪咕尖叫榜",
-    data: [
-      {
-        id: "jianjiao_newsong",
-        title: "尖叫新歌榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/02/36/20020512065402_360x360_2997.png",
+  // 使用新的 API 获取榜单
+  try {
+    const res = await axios_1.default.get('https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/querycontentbyId.do?columnId=27553319&needAll=0', {
+      headers: {
+        Referer: 'https://app.c.nf.migu.cn/',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; Nexus 6 Build/LYZ28E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Mobile Safari/537.36',
+        channel: '0146921',
       },
-      {
-        id: "jianjiao_hotsong",
-        title: "尖叫热歌榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/04/99/200408163640868_360x360_6587.png",
-      },
-      {
-        id: "jianjiao_original",
-        title: "尖叫原创榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/04/99/200408163702795_360x360_1614.png",
-      },
-    ],
+    });
+  } catch (e) {
+    // 忽略错误，使用固定列表
+  }
+
+  const yinyue = {
+    title: "咪咕音乐榜",
+    data: boardList.slice(0, 6).map(item => ({
+      id: item.bangid,
+      title: item.name,
+      coverImg: `https://cdnmusic.migu.cn/tycms_picture/20/02/36/20020512065402_360x360_2997.png`,
+    })),
   };
-  const tese = {
-    title: "咪咕特色榜",
-    data: [
-      {
-        id: "movies",
-        title: "影视榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/05/136/200515161848938_360x360_673.png",
-      },
-      {
-        id: "mainland",
-        title: "内地榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095104122_327x327_4971.png",
-      },
-      {
-        id: "hktw",
-        title: "港台榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095125191_327x327_2382.png",
-      },
-      {
-        id: "eur_usa",
-        title: "欧美榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095229556_327x327_1383.png",
-      },
-      {
-        id: "jpn_kor",
-        title: "日韩榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095259569_327x327_4628.png",
-      },
-      {
-        id: "coloring",
-        title: "彩铃榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095356693_327x327_7955.png",
-      },
-      {
-        id: "ktv",
-        title: "KTV榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095414420_327x327_4992.png",
-      },
-      {
-        id: "network",
-        title: "网络榜",
-        coverImg:
-          "https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095442606_327x327_1298.png",
-      },
-    ],
+
+  const diqu = {
+    title: "地区榜",
+    data: boardList.slice(6).map(item => ({
+      id: item.bangid,
+      title: item.name,
+      coverImg: `https://cdnmusic.migu.cn/tycms_picture/20/08/231/200818095104122_327x327_4971.png`,
+    })),
   };
-  return [jianjiao, tese];
+
+  return [yinyue, diqu];
 }
 const UA =
   "Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Mobile Safari/537.36 Edg/89.0.774.68";
 const By = CryptoJS.MD5(UA).toString();
+
 async function getTopListDetail(topListItem) {
+  const bangid = topListItem.id;
+
+  try {
+    const res = await axios_1.default.get(
+      `https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/querycontentbyId.do?columnId=${bangid}&needAll=0`,
+      {
+        headers: {
+          Referer: 'https://app.c.nf.migu.cn/',
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; Nexus 6 Build/LYZ28E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Mobile Safari/537.36',
+          channel: '0146921',
+        },
+      }
+    );
+
+    if (res.data && res.data.code === '000000' && res.data.columnInfo && res.data.columnInfo.contents) {
+      const musicList = res.data.columnInfo.contents.map(item => {
+        const songInfo = item.objectInfo || item;
+        const qualities = {};
+
+        // 解析音质信息
+        if (songInfo.newRateFormats && Array.isArray(songInfo.newRateFormats)) {
+          songInfo.newRateFormats.forEach((format) => {
+            const size = format.size || format.androidSize;
+            switch (format.formatType) {
+              case 'PQ':
+                qualities['128k'] = { size: sizeFormate(size), bitrate: 128000 };
+                break;
+              case 'HQ':
+                qualities['320k'] = { size: sizeFormate(size), bitrate: 320000 };
+                break;
+              case 'SQ':
+                qualities['flac'] = { size: sizeFormate(size), bitrate: 1411000 };
+                break;
+              case 'ZQ':
+              case 'ZQ24':
+                qualities['hires'] = { size: sizeFormate(size), bitrate: 2304000 };
+                break;
+            }
+          });
+        }
+
+        if (Object.keys(qualities).length === 0) {
+          qualities['128k'] = { size: 'N/A', bitrate: 128000 };
+        }
+
+        // 处理封面
+        let artwork = null;
+        if (songInfo.albumImgs && songInfo.albumImgs.length > 0) {
+          artwork = formatImgUrl(songInfo.albumImgs[0].img);
+        } else {
+          artwork = formatImgUrl(songInfo.img3 || songInfo.img2 || songInfo.img1 || songInfo.albumPic);
+        }
+
+        // 处理歌手
+        let artist = '';
+        if (songInfo.artists && Array.isArray(songInfo.artists)) {
+          artist = songInfo.artists.map(a => a.name).filter(Boolean).join(', ');
+        } else if (songInfo.singer) {
+          artist = songInfo.singer;
+        }
+
+        return {
+          id: songInfo.songId,
+          artwork: artwork,
+          title: songInfo.songName,
+          artist: artist,
+          album: songInfo.album || songInfo.albumName,
+          copyrightId: songInfo.copyrightId,
+          singerId: songInfo.singerId,
+          lrcUrl: songInfo.lrcUrl,
+          mrcUrl: songInfo.mrcUrl,
+          trcUrl: songInfo.trcUrl,
+          qualities: qualities,
+        };
+      });
+
+      return {
+        ...topListItem,
+        musicList: musicList,
+      };
+    }
+  } catch (error) {
+    console.error('[咪咕] 获取榜单详情失败，使用备用API:', error.message);
+  }
+
+  // 备用 API
   const res = await axios_1.default.get(
     `https://m.music.migu.cn/migumusic/h5/billboard/home`,
     {
       params: {
-        pathName: topListItem.id,
+        pathName: bangid,
         pageNum: 1,
         pageSize: 100,
       },
       headers: {
         Accept: "*/*",
-        "Accept-Encoding": "gzip, deflate, br",
-        Connection: "keep-alive",
         Host: "m.music.migu.cn",
-        referer: `https://m.music.migu.cn/v4/music/top/${topListItem.id}`,
+        referer: `https://m.music.migu.cn/v4/music/top/${bangid}`,
         "User-Agent": UA,
         By,
       },
     }
   );
-  return Object.assign(Object.assign({}, topListItem), {
-    musicList: res.data.data.songs.items.map((_) => {
-      var _a, _b, _c, _d, _e, _f;
-      return {
+
+  if (res.data && res.data.data && res.data.data.songs) {
+    return {
+      ...topListItem,
+      musicList: res.data.data.songs.items.map((_) => ({
         id: _.id,
         artwork: formatImgUrl(_.mediumPic),
         title: _.name,
-        artist:
-          (_c =
-            (_b = _.singers) === null || _b === void 0
-              ? void 0
-              : _b.map((_) => _.name)) === null || _c === void 0
-            ? void 0
-            : _c.join(", "),
-        album: (_d = _.album) === null || _d === void 0 ? void 0 : _d.albumName,
+        artist: _.singers?.map(s => s.name).join(', ') || '',
+        album: _.album?.albumName || '',
         copyrightId: _.copyrightId,
-        singerId:
-          (_f = (_e = _.singers) === null || _e === void 0 ? void 0 : _e[0]) ===
-            null || _f === void 0
-            ? void 0
-            : _f.id,
-        qualities: getMiGuQualitiesFromSong(_), // 添加音质检测
-      };
-    }),
-  });
-}
-async function getRecommendSheetTags() {
-  const allTags = (
-    await axios_1.default.get(
-      "https://m.music.migu.cn/migumusic/h5/playlist/allTag",
-      {
-        headers: {
-          host: "m.music.migu.cn",
-          referer: "https://m.music.migu.cn/v4/music/playlist",
-          "User-Agent":
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1 Edg/113.0.0.0",
-          By: "7242bd16f68cd9b39c54a8e61537009f",
-        },
-      }
-    )
-  ).data.data.tags;
-  const data = allTags.map((_) => {
-    return {
-      title: _.tagName,
-      data: _.tags.map((_) => ({
-        id: _.tagId,
-        title: _.tagName,
+        singerId: _.singers?.[0]?.id,
+        qualities: getMiGuQualitiesFromSong(_),
       })),
     };
-  });
-  return {
-    pinned: [
+  }
+
+  return { ...topListItem, musicList: [] };
+}
+async function getRecommendSheetTags() {
+  try {
+    const res = await axios_1.default.get(
+      'https://app.c.nf.migu.cn/pc/v1.0/template/musiclistplaza-taglist/release',
       {
-        title: "小清新",
-        id: "1000587673",
-      },
-      {
-        title: "电视剧",
-        id: "1001076078",
-      },
-      {
-        title: "民谣",
-        id: "1000001775",
-      },
-      {
-        title: "旅行",
-        id: "1000001749",
-      },
-      {
-        title: "思念",
-        id: "1000001703",
-      },
-    ],
-    data,
-  };
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+          Referer: 'https://m.music.migu.cn/',
+        },
+      }
+    );
+
+    if (res.data && res.data.code === '000000' && res.data.data) {
+      const rawList = res.data.data;
+
+      // 解析热门标签
+      const hotTags = rawList[0]?.content?.map(item => ({
+        id: item.texts?.[1] || item.tagId,
+        title: item.texts?.[0] || item.tagName,
+      })) || [];
+
+      // 解析分类标签
+      const data = rawList.slice(1).map(group => ({
+        title: group.header?.title || group.name,
+        data: (group.content || []).map(item => ({
+          id: item.texts?.[1] || item.tagId,
+          title: item.texts?.[0] || item.tagName,
+        })),
+      }));
+
+      return {
+        pinned: hotTags.slice(0, 8),
+        data,
+      };
+    }
+  } catch (error) {
+    console.error('[咪咕] 获取歌单标签失败，使用备用API:', error.message);
+  }
+
+  // 备用 API
+  try {
+    const allTags = (
+      await axios_1.default.get(
+        "https://m.music.migu.cn/migumusic/h5/playlist/allTag",
+        {
+          headers: {
+            host: "m.music.migu.cn",
+            referer: "https://m.music.migu.cn/v4/music/playlist",
+            "User-Agent":
+              "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1 Edg/113.0.0.0",
+            By: "7242bd16f68cd9b39c54a8e61537009f",
+          },
+        }
+      )
+    ).data.data.tags;
+
+    const data = allTags.map((_) => ({
+      title: _.tagName,
+      data: _.tags.map((t) => ({
+        id: t.tagId,
+        title: t.tagName,
+      })),
+    }));
+
+    return {
+      pinned: [
+        { title: "流行", id: "1000001672" },
+        { title: "伤感", id: "1000001795" },
+        { title: "电影", id: "1001076080" },
+        { title: "经典老歌", id: "1000001635" },
+        { title: "中国风", id: "1000001675" },
+        { title: "翻唱", id: "1000001831" },
+      ],
+      data,
+    };
+  } catch (e) {
+    return { pinned: [], data: [] };
+  }
 }
 async function getRecommendSheetsByTag(sheetItem, page) {
-  const pageSize = 20;
+  const pageSize = 30;
+  const tagId = sheetItem?.id || '';
+
+  try {
+    let url;
+    if (!tagId) {
+      // 无标签时获取推荐列表
+      url = `https://app.c.nf.migu.cn/pc/bmw/page-data/playlist-square-recommend/v1.0?templateVersion=2&pageNo=${page}`;
+    } else {
+      // 有标签时按标签获取
+      url = `https://app.c.nf.migu.cn/pc/v1.0/template/musiclistplaza-listbytag/release?pageNumber=${page}&templateVersion=2&tagId=${tagId}`;
+    }
+
+    const res = await axios_1.default.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+        Referer: 'https://m.music.migu.cn/',
+      },
+    });
+
+    if (res.data && res.data.code === '000000' && res.data.data) {
+      let list = [];
+
+      // 处理不同格式的返回数据
+      if (res.data.data.contents) {
+        // 递归提取歌单
+        const extractPlaylists = (contents, result = [], ids = new Set()) => {
+          for (const item of contents) {
+            if (item.contents) {
+              extractPlaylists(item.contents, result, ids);
+            } else if (item.resType === '2021' && !ids.has(item.resId)) {
+              ids.add(item.resId);
+              result.push({
+                id: String(item.resId),
+                title: item.txt,
+                artwork: formatImgUrl(item.img),
+                artist: '',
+                description: item.txt2 || '',
+              });
+            }
+          }
+          return result;
+        };
+        list = extractPlaylists(res.data.data.contents);
+      } else if (res.data.data.contentItemList) {
+        // 另一种格式
+        const itemList = res.data.data.contentItemList[1]?.itemList || res.data.data.contentItemList[0]?.itemList || [];
+        list = itemList.map(item => ({
+          id: String(item.logEvent?.contentId || item.id),
+          title: item.title,
+          artwork: formatImgUrl(item.imageUrl),
+          artist: '',
+          playCount: item.barList?.[0]?.title || '',
+        }));
+      }
+
+      if (list.length > 0) {
+        return {
+          isEnd: list.length < pageSize,
+          data: list,
+        };
+      }
+    }
+  } catch (error) {
+    console.error('[咪咕] 获取推荐歌单失败，使用备用API:', error.message);
+  }
+
+  // 备用 API
   const res = (
     await axios_1.default.get(
       "https://m.music.migu.cn/migumusic/h5/playlist/list",
       {
         params: {
           columnId: 15127272,
-          tagId: sheetItem.id,
+          tagId: tagId,
           pageNum: page,
           pageSize,
         },
@@ -1317,6 +1600,7 @@ async function getRecommendSheetsByTag(sheetItem, page) {
       }
     )
   ).data.data;
+
   const isEnd = page * pageSize > res.total;
   const data = res.items.map((_) => ({
     id: _.playListId,
@@ -1326,6 +1610,7 @@ async function getRecommendSheetsByTag(sheetItem, page) {
     playCount: _.playCount,
     createUserId: _.createUserId,
   }));
+
   return {
     isEnd,
     data,
@@ -1437,7 +1722,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "咪咕音乐",
   author: "Toskysun",
-  version: "0.2.2",
+  version: "0.2.3",
   appVersion: ">0.1.0-alpha.0",
   // 声明插件支持的音质列表（基于咪咕音乐实际提供的音质）
   supportedQualities: ["128k", "320k", "flac", "hires"],

@@ -1610,6 +1610,126 @@ async function getMusicInfoRaw(hash) {
   }
 }
 
+// 格式化歌单信息（用于推荐歌单）
+function formatRecommendSheetItem(_) {
+  return {
+    id: _.specialid || _.rankid || _.albumid || _.AuthorId,
+    title: _.specialname || _.rankname || _.albumname || _.title || _.AuthorName,
+    coverImg: (_.img || _.flexible_cover || _.imgurl || _.Avatar)?.replace("{size}", "480"),
+    artwork: (_.img || _.flexible_cover || _.imgurl || _.Avatar)?.replace("{size}", "480"),
+    description: _.intro,
+    artist: _.nickname || _.username,
+    worksNum: _.song_count || _.songcount || (_.extra && _.extra.resp && _.extra.resp.all_total),
+    playCount: _.play_count || _.playcount,
+    createAt: _.rank_id_publish_date || _.publish_time,
+  };
+}
+
+// 获取推荐歌单分类标签
+async function getRecommendSheetTags() {
+  // 排序选项作为 pinned
+  let pinned = [
+    { title: "推荐", id: "5" },
+    { title: "最热", id: "6" },
+    { title: "最新", id: "7" },
+    { title: "热藏", id: "3" },
+    { title: "飙升", id: "8" },
+  ];
+  let group = [];
+
+  try {
+    let res = (await axios_1.default.get("http://www2.kugou.kugou.com/yueku/v9/special/getSpecial?is_smarty=1")).data;
+
+    // 添加分类标签
+    let tagids = res.data.tagids;
+    let index = 0;
+    for (let name in tagids) {
+      group[index] = {
+        title: name,
+        data: []
+      };
+      tagids[name].data.forEach(tag => {
+        group[index].data.push({
+          title: tag.name,
+          id: tag.id + ""
+        });
+      });
+      index++;
+    }
+  } catch (error) {
+    console.error('[酷狗] 获取歌单标签失败:', error);
+  }
+
+  return {
+    pinned: pinned,
+    data: group,
+  };
+}
+
+// 根据标签获取推荐歌单列表
+async function getRecommendSheetsByTag(tag, page) {
+  let list = [];
+  let tagId = tag?.id || "";
+
+  // 判断是排序类型还是分类标签
+  let sortId = "5"; // 默认推荐
+  let categoryId = "";
+
+  // 排序类型 id: 5推荐 6最热 7最新 3热藏 8飙升
+  if (["3", "5", "6", "7", "8"].includes(tagId)) {
+    sortId = tagId;
+    categoryId = "";
+  } else if (tagId) {
+    categoryId = tagId;
+  }
+
+  try {
+    if (sortId === "5" && !categoryId && page === 1) {
+      // 推荐排序第一页，同时获取推荐歌单和普通列表
+      let [recRes, listRes] = await Promise.all([
+        axios_1.default({
+          url: "http://everydayrec.service.kugou.com/guess_special_recommend",
+          method: "POST",
+          data: {
+            appid: 1001,
+            clienttime: Date.now(),
+            clientver: 8275,
+            key: 'f1f93580115bb106680d2375f8032d96',
+            mid: '21511157a05844bd085308bc76ef3343',
+            platform: 'pc',
+            userid: '262643156',
+            return_min: 6,
+            return_max: 15,
+          },
+          headers: {
+            'User-Agent': 'KuGou2012-8275-web_browser_event_handler'
+          },
+        }).catch(() => ({ data: {} })),
+        axios_1.default.get(
+          `http://www2.kugou.kugou.com/yueku/v9/special/getSpecial?is_ajax=1&cdn=cdn&t=${sortId}&c=${categoryId}&p=${page}&pagesize=${pageSize}`
+        ).catch(() => ({ data: {} }))
+      ]);
+
+      let recList = recRes.data?.data?.special_list || [];
+      let normalList = listRes.data?.special_db || [];
+      list = [...recList, ...normalList];
+    } else {
+      // 普通分页获取
+      let res = (await axios_1.default.get(
+        `http://www2.kugou.kugou.com/yueku/v9/special/getSpecial?is_ajax=1&cdn=cdn&t=${sortId}&c=${categoryId}&p=${page}&pagesize=${pageSize}`
+      )).data;
+      list = res.special_db || [];
+    }
+  } catch (error) {
+    console.error('[酷狗] 获取推荐歌单失败:', error);
+  }
+
+  return {
+    isEnd: list.length < pageSize,
+    data: list.map(formatRecommendSheetItem)
+  };
+}
+
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
   const timestamp = Date.now();
@@ -1700,7 +1820,7 @@ async function getMusicComments(musicItem, page = 1) {
 }
 module.exports = {
   platform: "酷狗音乐",
-  version: "0.2.3",
+  version: "0.2.4",
   author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
@@ -1737,4 +1857,6 @@ module.exports = {
   importMusicSheet,
   getMusicSheetInfo,
   getMusicComments,
+  getRecommendSheetTags,
+  getRecommendSheetsByTag,
 };
