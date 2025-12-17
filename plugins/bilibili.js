@@ -5,6 +5,43 @@ const dayjs = require("dayjs");
 const he = require("he");
 const CryptoJs = require("crypto-js");
 const { load } = require('cheerio');
+
+// Audio quality codes
+const AudioQuality = {
+    Audio64K: 30216,
+    Audio132K: 30232,   // ~128k
+    Audio192K: 30280,
+    AudioDolby: 30250,  // Dolby Atmos
+    AudioHiRes: 30251,  // Hi-Res
+};
+
+// Quality mapping for plugin (向上映射显示)
+const QualityMap = {
+    "128k": AudioQuality.Audio64K,    // B站64k → 显示128k
+    "192k": AudioQuality.Audio132K,   // B站132k → 显示192k
+    "320k": AudioQuality.Audio192K,   // B站192k → 显示320k
+    "hires": AudioQuality.AudioHiRes,
+    "dolby": AudioQuality.AudioDolby,
+};
+
+// Get SESSDATA from user variables
+function getSessdata() {
+    const userVariables = env?.getUserVariables?.() || {};
+    return userVariables.SESSDATA || '';
+}
+
+// Build cookie header with SESSDATA
+function buildCookieHeader() {
+    const sessdata = getSessdata();
+    if (sessdata) {
+        return `SESSDATA=${sessdata}`;
+    }
+    if (cookie) {
+        return `buvid3=${cookie.b_3};buvid4=${cookie.b_4}`;
+    }
+    return '';
+}
+
 const headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63",
     accept: "*/*",
@@ -115,6 +152,7 @@ async function getFavoriteList(id) {
 function formatMedia(result) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     const title = he.decode((_b = (_a = result.title) === null || _a === void 0 ? void 0 : _a.replace(/(\<em(.*?)\>)|(\<\/em\>)/g, "")) !== null && _b !== void 0 ? _b : "");
+
     return {
         id: (_d = (_c = result.cid) !== null && _c !== void 0 ? _c : result.bvid) !== null && _d !== void 0 ? _d : result.aid,
         aid: result.aid,
@@ -131,17 +169,38 @@ function formatMedia(result) {
         date: dayjs.unix(result.pubdate || result.created).format("YYYY-MM-DD"),
     };
 }
+// Helper function to get playurl data (use non-WBI API for stability)
+async function getPlayurlData(bvid, aid, cid) {
+    const _params = bvid ? { bvid: bvid } : { aid: aid };
+    const params = Object.assign(Object.assign({}, _params), {
+        cid: cid,
+        qn: 127,
+        fnval: 4048,
+        fnver: 0,
+        fourk: 1,
+    });
+
+    const res = (await axios_1.default.get("https://api.bilibili.com/x/player/playurl", {
+        headers: headers,
+        params: params,
+    })).data;
+
+    return res;
+}
+
 async function searchAlbum(keyword, page) {
+    await getCookie();
     const resultData = await searchBase(keyword, page, "video");
-    const albums = resultData.result.map(formatMedia);
+    const albums = (resultData?.result || []).map(formatMedia);
+
     return {
-        isEnd: resultData.numResults <= page * pageSize,
+        isEnd: !resultData?.numResults || resultData.numResults <= page * pageSize,
         data: albums,
     };
 }
 async function searchArtist(keyword, page) {
     const resultData = await searchBase(keyword, page, "bili_user");
-    const artists = resultData.result.map((result) => {
+    const artists = (resultData?.result || []).map((result) => {
         var _a;
         return ({
             name: result.uname,
@@ -155,7 +214,7 @@ async function searchArtist(keyword, page) {
         });
     });
     return {
-        isEnd: resultData.numResults <= page * pageSize,
+        isEnd: !resultData?.numResults || resultData.numResults <= page * pageSize,
         data: artists,
     };
 }
@@ -301,45 +360,60 @@ async function getMediaSource(musicItem, quality) {
     if (!cid) {
         cid = (await getCid(musicItem.bvid, musicItem.aid)).data.cid;
     }
-    const _params = musicItem.bvid
-        ? {
-            bvid: musicItem.bvid,
-        }
-        : {
-            aid: musicItem.aid,
-        };
-    const res = (await axios_1.default.get("https://api.bilibili.com/x/player/playurl", {
-        headers: headers,
-        params: Object.assign(Object.assign({}, _params), { cid: cid, fnval: 16 }),
-    })).data;
-    let url;
-    if (res.data.dash) {
-        const audios = res.data.dash.audio;
-        audios.sort((a, b) => a.bandwidth - b.bandwidth);
 
-        // 映射标准音质到音频流索引
-        let audioIndex;
-        switch (quality) {
-            case "128k":
-                audioIndex = 0;
-                break;
-            case "320k":
-                audioIndex = Math.min(1, audios.length - 1);
-                break;
-            case "flac":
-                audioIndex = Math.min(2, audios.length - 1);
-                break;
-            case "flac24bit":
-                audioIndex = Math.min(3, audios.length - 1);
-                break;
-            default:
-                audioIndex = 0;
+    // Use non-WBI API for stability
+    const res = await getPlayurlData(musicItem.bvid, musicItem.aid, cid);
+
+    let url;
+
+    if (res.data && res.data.dash) {
+        const dash = res.data.dash;
+
+        // Try requested quality first, then fallback to highest available
+        // Priority: dolby > hires > 320k > 192k > 128k
+
+        if (quality === "dolby" && dash.dolby && dash.dolby.audio && dash.dolby.audio.length > 0) {
+            url = dash.dolby.audio[0].baseUrl || dash.dolby.audio[0].base_url;
         }
-        url = audios[audioIndex].baseUrl;
-    }
-    else {
+
+        if (!url && (quality === "dolby" || quality === "hires") && dash.flac && dash.flac.audio) {
+            url = dash.flac.audio.baseUrl || dash.flac.audio.base_url;
+        }
+
+        // Fallback to regular audio - get highest available
+        if (!url && dash.audio && dash.audio.length > 0) {
+            const audios = [...dash.audio];
+            // Sort by quality descending (highest first)
+            audios.sort((a, b) => b.id - a.id);
+
+            const targetQualityId = QualityMap[quality];
+            // Find matching or lower quality
+            let audio = null;
+
+            if (targetQualityId) {
+                // Try exact match first
+                audio = audios.find(a => a.id === targetQualityId);
+                // If not found, get highest available
+                if (!audio) {
+                    audio = audios[0];
+                }
+            } else {
+                // No specific quality requested or high quality fallback, use highest
+                audio = audios[0];
+            }
+
+            if (audio) {
+                url = audio.baseUrl || audio.base_url;
+            }
+        }
+    } else if (res.data && res.data.durl && res.data.durl.length > 0) {
         url = res.data.durl[0].url;
     }
+
+    if (!url) {
+        throw new Error("无法获取音频地址");
+    }
+
     const hostUrl = url.substring(url.indexOf("/") + 2);
     const _headers = {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63",
@@ -467,8 +541,30 @@ async function getTopLists() {
     return [weekly, precious, board];
 }
 async function getTopListDetail(topListItem) {
-    const res = await axios_1.default.get(`https://api.bilibili.com/x/web-interface/${topListItem.id}`, {
-        headers: Object.assign(Object.assign({}, headers), { referer: "https://www.bilibili.com/" }),
+    await getCookie();
+    const [path, queryString] = topListItem.id.split('?');
+    const queryParams = {};
+    if (queryString) {
+        queryString.split('&').forEach(pair => {
+            const [key, value] = pair.split('=');
+            queryParams[key] = value;
+        });
+    }
+    // ranking/v2 and popular/series need WBI signature
+    const needsWbi = path.includes('popular/series') || path.includes('ranking');
+    let params = queryParams;
+    if (needsWbi) {
+        const now = Math.round(Date.now() / 1e3);
+        params = Object.assign(Object.assign({}, queryParams), { wts: now.toString() });
+        const w_rid = await getRid(params);
+        params.w_rid = w_rid;
+    }
+    const res = await axios_1.default.get(`https://api.bilibili.com/x/web-interface/${path}`, {
+        headers: Object.assign(Object.assign({}, headers), {
+            referer: "https://www.bilibili.com/",
+            cookie: `buvid3=${cookie.b_3};buvid4=${cookie.b_4}`
+        }),
+        params: params,
     });
     return Object.assign(Object.assign({}, topListItem), { musicList: res.data.data.list.map(formatMedia) });
 }
@@ -544,15 +640,89 @@ async function getMusicComments(musicItem) {
         data: comments
     };
 }
+
+// Get available qualities with file sizes
+async function getMusicInfo(musicItem) {
+    let cid = musicItem.cid;
+    if (!cid) {
+        cid = (await getCid(musicItem.bvid, musicItem.aid)).data.cid;
+    }
+
+    // Use non-WBI API for stability
+    const res = await getPlayurlData(musicItem.bvid, musicItem.aid, cid);
+
+    const qualities = {};
+
+    if (res.data && res.data.dash) {
+        const dash = res.data.dash;
+        const duration = dash.duration || 0;
+
+        // Regular audio qualities
+        if (dash.audio && dash.audio.length > 0) {
+            for (const audio of dash.audio) {
+                const size = formatFileSize(audio.bandwidth * duration / 8);
+                switch (audio.id) {
+                    case AudioQuality.Audio64K:
+                        qualities["128k"] = { size: size };
+                        break;
+                    case AudioQuality.Audio132K:
+                        qualities["192k"] = { size: size };
+                        break;
+                    case AudioQuality.Audio192K:
+                        qualities["320k"] = { size: size };
+                        break;
+                }
+            }
+        }
+
+        // Hi-Res quality - show if available
+        if (dash.flac && dash.flac.audio) {
+            const flacAudio = dash.flac.audio;
+            qualities["hires"] = {
+                size: formatFileSize(flacAudio.bandwidth * duration / 8),
+            };
+        }
+
+        // Dolby Atmos quality - show if available
+        if (dash.dolby && dash.dolby.audio && dash.dolby.audio.length > 0) {
+            const dolbyAudio = dash.dolby.audio[0];
+            qualities["dolby"] = {
+                size: formatFileSize(dolbyAudio.bandwidth * duration / 8),
+            };
+        }
+    }
+
+    return { qualities };
+}
+
+function formatFileSize(bytes) {
+    if (!bytes || bytes <= 0) return "未知";
+    const units = ["B", "KB", "MB", "GB"];
+    let unitIndex = 0;
+    let size = bytes;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    return `${size.toFixed(1)}${units[unitIndex]}`;
+}
+
 module.exports = {
     platform: "bilibili",
     appVersion: ">=0.0",
-    version: "0.2.3",
-    author: "猫头猫",
+    version: "0.2.4",
+    author: "Toskysun",
     cacheControl: "no-cache",
     srcUrl: "https://musicfree-plugins.netlify.app/plugins/bilibili.js",
     primaryKey: ["id", "aid", "bvid", "cid"],
-    supportedQualities: ["128k", "320k", "flac", "flac24bit"],
+    supportedQualities: ["128k", "192k", "320k", "hires", "dolby"],
+    userVariables: [
+        {
+            key: "SESSDATA",
+            name: "登录Cookie",
+            hint: "填写SESSDATA可获取更高音质(Hi-Res/杜比)和会员内容。从浏览器Cookie中获取SESSDATA值",
+        },
+    ],
     hints: {
         importMusicSheet: [
             "bilibili 移动端：APP点击我的，空间，右上角分享，复制链接，浏览器打开切换桌面版网站，点击播放全部视频，复制链接",
@@ -594,5 +764,6 @@ module.exports = {
     getTopLists,
     getTopListDetail,
     importMusicSheet,
-    getMusicComments
+    getMusicComments,
+    getMusicInfo,
 };
