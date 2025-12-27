@@ -146,11 +146,11 @@ async function getBatchMusicQualityInfo(hashList) {
 
 function formatMusicItem(_, qualityInfo = {}) {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i;
-  
+
   // 使用从API获取的真实音质信息
   const fileHash = (_d = _.FileHash) !== null && _d !== void 0 ? _d : _.Grp[0].FileHash;
   let qualities = qualityInfo[fileHash] || {};
-  
+
   // 如果没有获取到音质信息，提供基础音质作为降级方案
   if (Object.keys(qualities).length === 0) {
     const basicQualities = ['128k', '320k', 'flac'];
@@ -158,7 +158,7 @@ function formatMusicItem(_, qualityInfo = {}) {
       qualities[quality] = {};
     });
   }
-  
+
   return {
     id: fileHash,
     title: (_a = _.SongName) !== null && _a !== void 0 ? _a : _.OriSongName,
@@ -178,6 +178,41 @@ function formatMusicItem(_, qualityInfo = {}) {
     sqhash: (_g = _.SQFileHash) !== null && _g !== void 0 ? _g : undefined,
     ResFileHash:
       (_h = _.ResFileHash) !== null && _h !== void 0 ? _h : undefined,
+    qualities: qualities,
+  };
+}
+
+// 格式化展开后的歌曲项（用于搜索结果展开Grp后的数据）
+function formatExpandedMusicItem(_, qualityInfo = {}) {
+  const fileHash = _.FileHash;
+  let qualities = qualityInfo[fileHash] || {};
+
+  // 如果没有获取到音质信息，提供基础音质作为降级方案
+  if (Object.keys(qualities).length === 0) {
+    const basicQualities = ['128k', '320k', 'flac'];
+    basicQualities.forEach(quality => {
+      qualities[quality] = {};
+    });
+  }
+
+  // 处理歌手信息
+  let artist = _.SingerName;
+  if (!artist && _.Singers && _.Singers.length > 0) {
+    artist = _.Singers.map(s => s.name).join(', ');
+  }
+
+  return {
+    id: fileHash,
+    title: _.SongName || _.OriSongName || '',
+    artist: artist || '',
+    album: _.AlbumName || '',
+    album_id: _.AlbumID || 0,
+    album_audio_id: 0,
+    duration: _.Duration,
+    artwork: _.Image ? _.Image.replace("{size}", "1080") : undefined,
+    "320hash": _.HQFileHash || undefined,
+    sqhash: _.SQFileHash || undefined,
+    ResFileHash: _.ResFileHash || undefined,
     qualities: qualities,
   };
 }
@@ -309,15 +344,33 @@ async function searchMusic(query, page) {
       },
     })
   ).data;
-  
-  const songList = res.data.lists;
-  
+
+  const rawList = res.data.lists;
+
+  // 展开折叠的歌曲（Grp字段中的歌曲）
+  let ids = new Set();
+  const expandedList = [];
+
+  rawList.forEach((item) => {
+    const key = (item.Audioid || '') + item.FileHash;
+    if (!ids.has(key)) {
+      ids.add(key);
+      expandedList.push(item);
+    }
+
+    // 展开Grp中折叠的歌曲
+    for (const childItem of item.Grp || []) {
+      const childKey = (childItem.Audioid || '') + childItem.FileHash;
+      if (!ids.has(childKey)) {
+        ids.add(childKey);
+        expandedList.push(childItem);
+      }
+    }
+  });
+
   // 提取hash列表用于批量获取音质信息
-  const hashList = songList.map(item => {
-    var _a;
-    return (_a = item.FileHash) !== null && _a !== void 0 ? _a : item.Grp[0].FileHash;
-  }).filter(hash => hash);
-  
+  const hashList = expandedList.map(item => item.FileHash).filter(hash => hash);
+
   // 批量获取音质信息
   let qualityInfoMap = {};
   try {
@@ -325,9 +378,9 @@ async function searchMusic(query, page) {
   } catch (error) {
     console.error('Failed to get quality info for KuGou search:', error);
   }
-  
-  const songs = songList.map(song => formatMusicItem(song, qualityInfoMap));
-  
+
+  const songs = expandedList.map(song => formatExpandedMusicItem(song, qualityInfoMap));
+
   return {
     isEnd: page * pageSize >= res.data.total,
     data: songs,
@@ -1896,7 +1949,7 @@ async function getMusicComments(musicItem, page = 1) {
 }
 module.exports = {
   platform: "酷狗音乐",
-  version: "0.2.4",
+  version: "0.2.5",
   author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,

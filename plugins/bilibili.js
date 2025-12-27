@@ -753,7 +753,7 @@ function formatFileSize(bytes) {
 module.exports = {
     platform: "bilibili",
     appVersion: ">=0.0",
-    version: "0.2.4",
+    version: "0.2.5",
     author: "Toskysun",
     cacheControl: "no-cache",
     srcUrl: "https://musicfree-plugins.netlify.app/plugins/bilibili.js",

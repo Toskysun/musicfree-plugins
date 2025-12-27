@@ -791,7 +791,7 @@ async function getMusicPlaylistInfo(playlist) {
 
 module.exports = {
   "platform": "汽水音乐",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Toskysun",
   "appVersion": ">0.1.0-alpha.0",
   "srcUrl": "https://musicfree-plugins.netlify.app/plugins/qishui.js",

@@ -2284,7 +2284,7 @@ async function getMusicInfo(musicBase) {
 module.exports = {
   platform: "咪咕音乐",
   author: "Toskysun",
-  version: "0.2.4",
+  version: "0.2.5",
   appVersion: ">0.1.0-alpha.0",
   // 声明插件支持的音质列表（基于咪咕音乐实际提供的音质）
   supportedQualities: ["128k", "320k", "flac", "hires"],
