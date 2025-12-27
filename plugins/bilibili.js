@@ -641,58 +641,101 @@ async function getMusicComments(musicItem) {
     };
 }
 
-// Get available qualities with file sizes
-async function getMusicInfo(musicItem) {
-    let cid = musicItem.cid;
-    if (!cid) {
-        cid = (await getCid(musicItem.bvid, musicItem.aid)).data.cid;
+// Get full music info for PlayById feature
+async function getMusicInfo(musicBase) {
+    // Support various ID formats: bvid, aid, or just id
+    const bvid = musicBase.bvid || (typeof musicBase.id === 'string' && musicBase.id.startsWith('BV') ? musicBase.id : null);
+    const aid = musicBase.aid || (typeof musicBase.id === 'number' || (typeof musicBase.id === 'string' && /^\d+$/.test(musicBase.id)) ? musicBase.id : null);
+
+    if (!bvid && !aid) {
+        console.error('[bilibili] getMusicInfo: 缺少有效的bvid或aid');
+        return null;
     }
 
-    // Use non-WBI API for stability
-    const res = await getPlayurlData(musicItem.bvid, musicItem.aid, cid);
+    try {
+        // Get video info including cid
+        const cidRes = await getCid(bvid, aid);
 
-    const qualities = {};
+        if (!cidRes || !cidRes.data) {
+            console.error('[bilibili] getMusicInfo: 未找到视频信息');
+            return null;
+        }
 
-    if (res.data && res.data.dash) {
-        const dash = res.data.dash;
-        const duration = dash.duration || 0;
+        const videoData = cidRes.data;
+        const cid = videoData.cid;
 
-        // Regular audio qualities
-        if (dash.audio && dash.audio.length > 0) {
-            for (const audio of dash.audio) {
-                const size = formatFileSize(audio.bandwidth * duration / 8);
-                switch (audio.id) {
-                    case AudioQuality.Audio64K:
-                        qualities["128k"] = { size: size };
-                        break;
-                    case AudioQuality.Audio132K:
-                        qualities["192k"] = { size: size };
-                        break;
-                    case AudioQuality.Audio192K:
-                        qualities["320k"] = { size: size };
-                        break;
+        // Get playurl data for quality info
+        const res = await getPlayurlData(bvid, aid, cid);
+
+        const qualities = {};
+
+        if (res.data && res.data.dash) {
+            const dash = res.data.dash;
+            const duration = dash.duration || 0;
+
+            // Regular audio qualities
+            if (dash.audio && dash.audio.length > 0) {
+                for (const audio of dash.audio) {
+                    const size = formatFileSize(audio.bandwidth * duration / 8);
+                    switch (audio.id) {
+                        case AudioQuality.Audio64K:
+                            qualities["128k"] = { size: size };
+                            break;
+                        case AudioQuality.Audio132K:
+                            qualities["192k"] = { size: size };
+                            break;
+                        case AudioQuality.Audio192K:
+                            qualities["320k"] = { size: size };
+                            break;
+                    }
                 }
+            }
+
+            // Hi-Res quality
+            if (dash.flac && dash.flac.audio) {
+                const flacAudio = dash.flac.audio;
+                qualities["hires"] = {
+                    size: formatFileSize(flacAudio.bandwidth * duration / 8),
+                };
+            }
+
+            // Dolby Atmos quality
+            if (dash.dolby && dash.dolby.audio && dash.dolby.audio.length > 0) {
+                const dolbyAudio = dash.dolby.audio[0];
+                qualities["dolby"] = {
+                    size: formatFileSize(dolbyAudio.bandwidth * duration / 8),
+                };
             }
         }
 
-        // Hi-Res quality - show if available
-        if (dash.flac && dash.flac.audio) {
-            const flacAudio = dash.flac.audio;
-            qualities["hires"] = {
-                size: formatFileSize(flacAudio.bandwidth * duration / 8),
-            };
+        // Ensure at least basic quality
+        if (Object.keys(qualities).length === 0) {
+            qualities["128k"] = {};
         }
 
-        // Dolby Atmos quality - show if available
-        if (dash.dolby && dash.dolby.audio && dash.dolby.audio.length > 0) {
-            const dolbyAudio = dash.dolby.audio[0];
-            qualities["dolby"] = {
-                size: formatFileSize(dolbyAudio.bandwidth * duration / 8),
-            };
+        // Build artwork URL
+        let artwork = videoData.pic;
+        if (artwork && artwork.startsWith("//")) {
+            artwork = "http:" + artwork;
         }
+
+        return {
+            id: cid || bvid || aid,
+            bvid: videoData.bvid,
+            aid: videoData.aid,
+            cid: cid,
+            title: videoData.title || '',
+            artist: videoData.owner?.name || '',
+            album: videoData.bvid || videoData.aid,
+            artwork: artwork,
+            duration: videoData.duration,
+            qualities: qualities,
+            platform: 'bilibili',
+        };
+    } catch (error) {
+        console.error('[bilibili] getMusicInfo 错误:', error.message);
+        return null;
     }
-
-    return { qualities };
 }
 
 function formatFileSize(bytes) {

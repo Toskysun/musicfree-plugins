@@ -835,6 +835,95 @@ async function getMusicInfoForComment(musicItem) {
   }
 }
 
+// 通过ID/songmid获取歌曲详细信息
+async function getMusicInfo(musicBase) {
+  try {
+    const songmid = musicBase.songmid || musicBase.mid || musicBase.id;
+    const songid = musicBase.id || musicBase.songid;
+
+    if (!songmid && !songid) {
+      console.error('[QQ音乐] getMusicInfo: 缺少有效的歌曲标识');
+      return null;
+    }
+
+    const res = await axios_1.default.post(
+      'https://u.y.qq.com/cgi-bin/musicu.fcg',
+      {
+        comm: {
+          ct: '19',
+          cv: '1859',
+          uin: '0',
+        },
+        req: {
+          module: 'music.trackInfo.UniformRuleCtrl',
+          method: 'CgiGetTrackInfo',
+          param: {
+            types: [1],
+            ids: songid && !isNaN(Number(songid)) ? [Number(songid)] : [0],
+            mids: songmid ? [String(songmid)] : [],
+            ctx: 0,
+          },
+        },
+      },
+      {
+        headers: {
+          referer: 'https://y.qq.com',
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36',
+          Cookie: 'uin=',
+        },
+      }
+    );
+
+    if (res.data && res.data.req && res.data.req.data && res.data.req.data.tracks && res.data.req.data.tracks[0]) {
+      const track = res.data.req.data.tracks[0];
+      const file = track.file || {};
+
+      // 构建音质信息
+      const qualities = {};
+      if (file.size_128mp3 && file.size_128mp3 !== 0) {
+        qualities['128k'] = { size: file.size_128mp3, bitrate: 128000 };
+      }
+      if (file.size_320mp3 && file.size_320mp3 !== 0) {
+        qualities['320k'] = { size: file.size_320mp3, bitrate: 320000 };
+      }
+      if (file.size_flac && file.size_flac !== 0) {
+        qualities['flac'] = { size: file.size_flac, bitrate: 1411000 };
+      }
+      if (file.size_hires && file.size_hires !== 0) {
+        qualities['hires'] = { size: file.size_hires, bitrate: 1536000 };
+      }
+
+      const album = track.album || {};
+      const singers = track.singer || [];
+
+      return {
+        id: track.id,
+        songid: track.id,
+        songmid: track.mid,
+        mid: track.mid,
+        title: track.title || track.name,
+        artist: singers.map(s => s.name).join(', '),
+        album: album.title || album.name,
+        albumid: album.id,
+        albummid: album.mid,
+        artwork: album.mid
+          ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${album.mid}.jpg`
+          : undefined,
+        duration: track.interval,
+        qualities: qualities,
+        platform: 'QQ音乐',
+      };
+    }
+
+    console.error('[QQ音乐] getMusicInfo: 未找到歌曲信息');
+    return null;
+  } catch (error) {
+    console.error('[QQ音乐] getMusicInfo 错误:', error.message);
+    return null;
+  }
+}
+
 // 获取热评论
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;
@@ -966,6 +1055,7 @@ module.exports = {
     }
   },
   getMediaSource,
+  getMusicInfo,
   getLyric,
   getAlbumInfo,
   getArtistWorks,

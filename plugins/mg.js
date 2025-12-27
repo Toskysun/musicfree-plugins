@@ -2196,6 +2196,91 @@ async function getMusicComments(musicItem, page = 1) {
     return { isEnd: true, data: [] };
   }
 }
+
+// 通过ID获取歌曲完整信息（用于PlayById功能）
+async function getMusicInfo(musicBase) {
+  const songId = musicBase.id || musicBase.copyrightId || musicBase.songId;
+  if (!songId) {
+    console.error('[咪咕] getMusicInfo: 缺少有效的歌曲ID');
+    return null;
+  }
+
+  try {
+    const time = Date.now().toString();
+    const signData = createSignature(time, songId);
+
+    // 使用搜索API通过ID查找歌曲
+    const url = `https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=%7B%22song%22%3A1%2C%22album%22%3A0%2C%22singer%22%3A0%2C%22tagSong%22%3A1%2C%22mvSong%22%3A0%2C%22bestShow%22%3A1%2C%22songlist%22%3A0%2C%22lyricSong%22%3A0%7D&pageSize=10&text=${encodeURIComponent(songId)}&pageNo=1&sort=0&sid=USS`;
+
+    const res = await axios_1.default.get(url, {
+      headers: {
+        uiVersion: 'A_music_3.6.1',
+        deviceId: signData.deviceId,
+        timestamp: time,
+        sign: signData.sign,
+        channel: '0146921',
+        'User-Agent': 'Mozilla/5.0 (Linux; U; Android 11.0.0; zh-cn; MI 11 Build/OPR1.170623.032) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30',
+      },
+    });
+
+    if (res.data && res.data.code === '000000' && res.data.songResultData) {
+      const resultList = res.data.songResultData.resultList || [];
+
+      // 查找匹配的歌曲
+      for (const itemArray of resultList) {
+        if (!Array.isArray(itemArray)) continue;
+
+        for (const item of itemArray) {
+          // 检查是否匹配ID
+          if (item.songId === songId || item.copyrightId === songId ||
+              String(item.songId) === String(songId) || String(item.copyrightId) === String(songId)) {
+
+            // 构建音质信息
+            const qualities = {};
+            if (item.audioFormats && Array.isArray(item.audioFormats)) {
+              item.audioFormats.forEach((format) => {
+                const size = format.asize || format.isize || format.fileSize;
+                switch (format.formatType) {
+                  case 'PQ': qualities['128k'] = { size: sizeFormate(size) }; break;
+                  case 'HQ': qualities['320k'] = { size: sizeFormate(size) }; break;
+                  case 'SQ': qualities['flac'] = { size: sizeFormate(size) }; break;
+                  case 'ZQ24': qualities['hires'] = { size: sizeFormate(size) }; break;
+                }
+              });
+            }
+            if (Object.keys(qualities).length === 0) {
+              qualities['128k'] = {};
+              qualities['320k'] = {};
+            }
+
+            let artwork = item.img3 || item.img2 || item.img1 || null;
+            if (artwork && !/https?:/.test(artwork)) artwork = 'http://d.musicapp.migu.cn' + artwork;
+
+            return {
+              id: item.songId,
+              copyrightId: item.copyrightId,
+              title: item.name || item.songName,
+              artist: formatSingerName(item.singerList) || item.artist,
+              album: item.album || item.albumName,
+              albumId: item.albumId,
+              artwork: artwork,
+              duration: item.duration ? Math.floor(item.duration / 1000) : undefined,
+              qualities: qualities,
+              platform: '咪咕音乐',
+            };
+          }
+        }
+      }
+    }
+
+    console.error('[咪咕] getMusicInfo: 未找到歌曲信息');
+    return null;
+  } catch (error) {
+    console.error('[咪咕] getMusicInfo 错误:', error.message);
+    return null;
+  }
+}
+
 module.exports = {
   platform: "咪咕音乐",
   author: "Toskysun",
@@ -2381,4 +2466,5 @@ module.exports = {
   getRecommendSheetsByTag,
   getMusicSheetInfo,
   getMusicComments,
+  getMusicInfo,
 };

@@ -10,6 +10,15 @@ const CryptoJs = require("crypto-js");
 const he = require("he");
 const pageSize = 20;
 
+// 格式化文件大小为可读格式
+function formatFileSize(bytes) {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + 'GB';
+}
+
 // 批量获取酷狗音乐的音质信息
 async function getBatchMusicQualityInfo(hashList) {
   if (!hashList || hashList.length === 0) return {};
@@ -63,46 +72,60 @@ async function getBatchMusicQualityInfo(hashList) {
         for (const quality_data of songData.relate_goods) {
           const size = quality_data.info.filesize;
           if (!size) continue;
-          
+
           switch (quality_data.quality) {
             case '128':
               qualities['128k'] = {
-                size: size,
+                size: formatFileSize(size),
                 bitrate: 128000,
                 hash: quality_data.hash
               };
               break;
             case '320':
               qualities['320k'] = {
-                size: size,
+                size: formatFileSize(size),
                 bitrate: 320000,
                 hash: quality_data.hash
               };
               break;
             case 'flac':
               qualities['flac'] = {
-                size: size,
+                size: formatFileSize(size),
                 bitrate: 1411000,
                 hash: quality_data.hash
               };
               break;
             case 'high':
               qualities['hires'] = {
-                size: size,
+                size: formatFileSize(size),
                 bitrate: 2304000,
                 hash: quality_data.hash
               };
               break;
             case 'viper_clear':
               qualities['master'] = {
-                size: size,
+                size: formatFileSize(size),
                 bitrate: 2304000,
                 hash: quality_data.hash
               };
               break;
             case 'viper_atmos':
               qualities['atmos'] = {
-                size: size,
+                size: formatFileSize(size),
+                bitrate: 1411000,
+                hash: quality_data.hash
+              };
+              break;
+            case 'dolby':
+              qualities['dolby'] = {
+                size: formatFileSize(size),
+                bitrate: 640000,
+                hash: quality_data.hash
+              };
+              break;
+            case 'viper_tape':
+              qualities['tape'] = {
+                size: formatFileSize(size),
                 bitrate: 1411000,
                 hash: quality_data.hash
               };
@@ -479,7 +502,7 @@ const qualityLevels = {
   "128k": "128k",
   "320k": "320k",
   "flac": "flac",
-  "flac24bit": "flac24bit", 
+  "flac24bit": "flac24bit",
   "hires": "hires",
   "atmos": "atmos",
   "master": "master",
@@ -1610,6 +1633,59 @@ async function getMusicInfoRaw(hash) {
   }
 }
 
+// 通过hash获取歌曲完整信息（用于PlayById功能）
+async function getMusicInfo(musicBase) {
+  const hash = musicBase.hash || musicBase.id;
+  if (!hash) {
+    console.error('[酷狗] getMusicInfo: 缺少有效的hash');
+    return null;
+  }
+
+  try {
+    // 并行获取歌曲基本信息和音质信息
+    const [info, qualityInfoMap] = await Promise.all([
+      getMusicInfoRaw(hash),
+      getBatchMusicQualityInfo([hash]).catch(() => ({}))
+    ]);
+
+    if (!info) {
+      console.error('[酷狗] getMusicInfo: 未找到歌曲信息');
+      return null;
+    }
+
+    const albumInfo = info.album_info || {};
+    const audioInfo = info.audio_info || {};
+
+    // 使用统一的音质获取函数，确保获取真实可用的音质列表和hash
+    let qualities = qualityInfoMap[hash] || {};
+
+    // 如果没有获取到音质信息，提供基础音质作为降级方案
+    if (Object.keys(qualities).length === 0) {
+      qualities = {
+        '128k': {},
+        '320k': {},
+        'flac': {}
+      };
+    }
+
+    return {
+      id: hash,
+      hash: hash,
+      title: info.songname || info.ori_audio_name,
+      artist: info.author_name,
+      album: albumInfo.album_name,
+      album_id: albumInfo.album_id,
+      artwork: (albumInfo.sizable_cover || '').replace('{size}', '480'),
+      duration: audioInfo.timelength ? Math.floor(audioInfo.timelength / 1000) : undefined,
+      qualities: qualities,
+      platform: '酷狗音乐',
+    };
+  } catch (error) {
+    console.error('[酷狗] getMusicInfo 错误:', error.message);
+    return null;
+  }
+}
+
 // 格式化歌单信息（用于推荐歌单）
 function formatRecommendSheetItem(_) {
   return {
@@ -1849,6 +1925,7 @@ module.exports = {
     }
   },
   getMediaSource,
+  getMusicInfo,
   getTopLists,
   getLyric,
   getTopListDetail,

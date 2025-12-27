@@ -331,6 +331,64 @@ async function getMusicDetailInfo(musicItem) {
 }
 
 /**
+ * 获取音乐完整信息（用于PlayById功能）
+ * @async
+ * @param {Object} musicBase - 音乐基础对象
+ * @param {string} musicBase.id - 音乐 ID
+ * @returns {Promise<Object>} 音乐完整信息
+ */
+async function getMusicInfo(musicBase) {
+  const songId = musicBase.id || musicBase.item_id;
+  if (!songId) {
+    console.error('[汽水音乐] getMusicInfo: 缺少有效的歌曲ID');
+    return null;
+  }
+
+  try {
+    const response = await axios.default.get("https://api-vehicle.volcengine.com/v2/custom/contents", {
+      "params": {
+        "sources": "qishui",
+        "need_author": true,
+        "need_album": true,
+        "need_ugc": true,
+        "need_stat": true,
+        "item_ids": songId
+      }
+    });
+
+    const apiData = response.data;
+    if (!apiData.data || !apiData.data.list || apiData.data.list.length === 0) {
+      console.error('[汽水音乐] getMusicInfo: 未找到歌曲信息');
+      return null;
+    }
+
+    const item = apiData.data.list[0];
+    const vipLabel = getVipLabel(item?.["qishui_label_info"]?.["only_vip_playable"]);
+
+    // 构建音质信息
+    const qualities = {
+      "128k": { bitrate: 128000 },
+      "320k": { bitrate: 320000 },
+      "flac": { bitrate: 1411000 },
+    };
+
+    return {
+      id: songId,
+      title: (item.title || '') + vipLabel,
+      artist: item.author_info?.name || '',
+      album: item.album_info?.name || '',
+      artwork: item.cover_url,
+      duration: item.duration ? Math.floor(item.duration / 1000) : undefined,
+      qualities: qualities,
+      platform: '汽水音乐',
+    };
+  } catch (error) {
+    console.error('[汽水音乐] getMusicInfo 错误:', error.message);
+    return null;
+  }
+}
+
+/**
  * 获取音乐播放源
  * @async
  * @param {Object} musicItem - 音乐对象
@@ -759,7 +817,7 @@ module.exports = {
     if (type === "music") return await searchMusic(query, page);
   },
 
-  "getMusicInfo": getMusicDetailInfo,
+  "getMusicInfo": getMusicInfo,
   "getLyric": getMusicDetailInfo,
   "getMediaSource": getMusicPlaybackSource,
   "getTopLists": getTopLists,

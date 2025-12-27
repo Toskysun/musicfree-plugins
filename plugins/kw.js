@@ -1011,42 +1011,78 @@ async function getMediaSource(musicItem, quality) {
     throw error;
   }
 }
-function getMusicInfo(musicItem) {
-  // Priority 1: Use cached artwork from musicItem if available
-  if (musicItem.artwork) {
-    return Promise.resolve({
-      artwork: musicItem.artwork,
-    });
+async function getMusicInfo(musicBase) {
+  const rid = musicBase.id || musicBase.rid;
+  if (!rid) {
+    console.error('[酷我] getMusicInfo: 缺少有效的歌曲ID');
+    return null;
   }
 
-  // Priority 2: Try to get artwork from KuWo pic server
-  const rid = musicItem.id;
-  return getPicByRid(rid).then(artwork => {
-    if (artwork) {
-      return { artwork: artwork };
+  try {
+    // 并行获取歌曲信息、封面和音质信息
+    const [infoRes, artworkFromPicServer] = await Promise.all([
+      axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
+        params: {
+          musicId: rid,
+          httpStatus: 1,
+        },
+      }),
+      getPicByRid(rid).catch(() => null)
+    ]);
+
+    // 正确的响应结构是 res.data.data.songinfo
+    if (!infoRes.data || infoRes.data.status !== 200 || !infoRes.data.data || !infoRes.data.data.songinfo) {
+      console.error('[酷我] getMusicInfo: 未找到歌曲信息');
+      return null;
     }
 
-    // Priority 3: Fallback to API method
-    return axios_1.default.get("http://m.kuwo.cn/newh5/singles/songinfoandlrc", {
-      params: {
-        musicId: musicItem.id,
-        httpStatus: 1,
-      },
-    }).then(res => {
-      const originalUrl = res.data.songinfo.pic;
-      let picUrl;
-      if (originalUrl && originalUrl.includes("starheads/")) {
-        picUrl = originalUrl.replace(/starheads\/\d+/, "starheads/800");
-      } else if (originalUrl && originalUrl.includes("albumcover/")) {
-        picUrl = originalUrl.replace(/albumcover\/\d+/, "albumcover/800");
+    const info = infoRes.data.data.songinfo;
+    const songName = info.songName ? he.decode(info.songName) : '';
+    const artist = info.artist ? he.decode(info.artist) : '';
+
+    // 获取音质信息（与搜索使用相同逻辑）
+    let qualities = {};
+    try {
+      qualities = await getQualityByMusicId(rid, songName, artist);
+    } catch (e) {
+      // 忽略错误
+    }
+
+    // 如果没有获取到音质信息，提供基础音质作为降级方案
+    if (Object.keys(qualities).length === 0) {
+      qualities = { '128k': {}, '320k': {} };
+      if (info.hasLossless) {
+        qualities['flac'] = {};
       }
-      return {
-        artwork: picUrl || null,
-      };
-    }).catch(() => {
-      return { artwork: null };
-    });
-  });
+    }
+
+    // 优先使用pic服务器的高清封面
+    let artwork = artworkFromPicServer;
+    if (!artwork) {
+      // 降级使用songinfo中的封面
+      artwork = info.pic;
+      if (artwork && artwork.includes("starheads/")) {
+        artwork = artwork.replace(/starheads\/\d+/, "starheads/800");
+      } else if (artwork && artwork.includes("albumcover/")) {
+        artwork = artwork.replace(/albumcover\/\d+/, "albumcover/800");
+      }
+    }
+
+    return {
+      id: rid,
+      title: songName || undefined,
+      artist: artist || undefined,
+      album: info.album ? he.decode(info.album) : undefined,
+      albumId: info.albumId,
+      artwork: artwork,
+      duration: info.duration,
+      qualities: qualities,
+      platform: '酷我音乐',
+    };
+  } catch (error) {
+    console.error('[酷我] getMusicInfo 错误:', error.message);
+    return null;
+  }
 }
 async function getMusicComments(musicItem, page = 1) {
   const pageSize = 20;

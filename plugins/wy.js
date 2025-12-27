@@ -511,14 +511,7 @@ async function getLyric(musicItem) {
     romanization: result.romalrc?.lyric,
   };
 }
-async function getMusicInfo(musicItem) {
-  // 如果已经有完整的封面URL，直接返回，避免重复请求
-  if (musicItem.artwork && musicItem.artwork.startsWith('http')) {
-    return {
-      artwork: musicItem.artwork,
-    };
-  }
-
+async function getMusicInfo(musicBase) {
   const headers = {
     Referer: "https://y.music.163.com/",
     Origin: "https://y.music.163.com/",
@@ -527,16 +520,54 @@ async function getMusicInfo(musicItem) {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
     "Content-Type": "application/x-www-form-urlencoded",
   };
-  const data = { id: musicItem.id, ids: `[${musicItem.id}]` };
-  const result = (
-    await axios_1.get("http://music.163.com/api/song/detail", {
-      headers,
-      params: data,
-    })
-  ).data;
-  return {
-    artwork: result.songs[0].album.picUrl,
-  };
+
+  const songId = musicBase.id || musicBase.songid;
+  if (!songId) {
+    console.error('[网易云] getMusicInfo: 缺少有效的歌曲ID');
+    return null;
+  }
+
+  try {
+    const data = { id: songId, ids: `[${songId}]` };
+    const result = (
+      await axios_1.get("http://music.163.com/api/song/detail", {
+        headers,
+        params: data,
+      })
+    ).data;
+
+    if (!result.songs || result.songs.length === 0) {
+      console.error('[网易云] getMusicInfo: 未找到歌曲信息');
+      return null;
+    }
+
+    const song = result.songs[0];
+    const album = song.album || song.al;
+    const artists = song.artists || song.ar || [];
+
+    // 获取音质信息
+    let qualities = {};
+    try {
+      qualities = await getMusicQualityInfo(songId);
+    } catch (e) {
+      console.error('[网易云] 获取音质信息失败:', e.message);
+    }
+
+    return {
+      id: song.id,
+      title: song.name,
+      artist: artists.map(a => a.name).join(', '),
+      album: album ? album.name : undefined,
+      albumId: album ? album.id : undefined,
+      artwork: album ? album.picUrl : undefined,
+      duration: song.duration ? Math.floor(song.duration / 1000) : undefined,
+      qualities: Object.keys(qualities).length > 0 ? qualities : { '128k': {}, '320k': {} },
+      platform: '网易云音乐',
+    };
+  } catch (error) {
+    console.error('[网易云] getMusicInfo 错误:', error.message);
+    return null;
+  }
 }
 async function getAlbumInfo(albumItem) {
   const headers = {
