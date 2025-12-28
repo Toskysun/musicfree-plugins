@@ -10,6 +10,27 @@ const qs = require("qs");
 const bigInt = require("big-integer");
 const dayjs = require("dayjs");
 const cheerio = require("cheerio");
+
+// eapi encryption for lyric API
+const eapiKey = "e82ckenh8dichen8";
+function eapiEncrypt(url, object) {
+  const text = typeof object === 'object' ? JSON.stringify(object) : object;
+  const message = `nobody${url}use${text}md5forencrypt`;
+  const digest = CryptoJs.MD5(message).toString();
+  const data = `${url}-36cd479b6b5-${text}-36cd479b6b5-${digest}`;
+
+  const encrypted = CryptoJs.AES.encrypt(
+    CryptoJs.enc.Utf8.parse(data),
+    CryptoJs.enc.Utf8.parse(eapiKey),
+    {
+      mode: CryptoJs.mode.ECB,
+      padding: CryptoJs.pad.Pkcs7
+    }
+  );
+  return {
+    params: encrypted.ciphertext.toString(CryptoJs.enc.Hex).toUpperCase()
+  };
+}
 function create_key() {
   var d,
     e,
@@ -485,31 +506,193 @@ async function getTopListDetail(topListItem) {
   const musicList = await getSheetMusicById(topListItem.id);
   return Object.assign(Object.assign({}, topListItem), { musicList });
 }
+// Parse yrc format to QRC format that lrcParser supports
+// yrc format: [28480,11820](28480,160,0)我(28640,420,0)带(29060,230,0)着...
+//   - Time is BEFORE the character: (startMs,durationMs,0)字
+// QRC format: [28480,11820]我(28480,160)带(28640,420)着...
+//   - Character is BEFORE the time: 字(startMs,durationMs)
+// Also handles JSON metadata lines
+function parseYrcToQrc(yrcContent) {
+  if (!yrcContent) return null;
+
+  const lines = yrcContent.trim().split('\n');
+  const qrcLines = [];
+  // yrc word pattern: (startMs,durationMs,flag)text - time BEFORE text
+  const yrcWordPattern = /\((\d+),(\d+),\d+\)([^(]*)/g;
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+
+    // Skip JSON metadata lines (like author info)
+    if (trimmedLine.startsWith('{"')) {
+      continue;
+    }
+
+    // Match line timing: [startMs,durationMs]
+    const lineMatch = trimmedLine.match(/^\[(\d+),(\d+)\](.*)$/);
+    if (!lineMatch) continue;
+
+    const lineStartMs = lineMatch[1];
+    const lineDurationMs = lineMatch[2];
+    const content = lineMatch[3];
+
+    // Parse words: (startMs,durationMs,0)text -> text(startMs,durationMs)
+    yrcWordPattern.lastIndex = 0;
+    const qrcWords = [];
+    let match;
+    while ((match = yrcWordPattern.exec(content)) !== null) {
+      const wordStartMs = match[1];
+      const wordDurationMs = match[2];
+      const text = match[3];
+      // Convert to QRC format: text(startMs,durationMs)
+      qrcWords.push(`${text}(${wordStartMs},${wordDurationMs})`);
+    }
+
+    if (qrcWords.length > 0) {
+      qrcLines.push(`[${lineStartMs},${lineDurationMs}]${qrcWords.join('')}`);
+    }
+  }
+
+  return qrcLines.length > 0 ? qrcLines.join('\n') : null;
+}
+
+// Parse yrc translation/romanization (simpler format without word timing)
+function parseYrcTrans(yrcContent) {
+  if (!yrcContent) return null;
+
+  const lines = yrcContent.trim().split('\n');
+  const lrcLines = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+
+    if (trimmedLine.startsWith('{"')) {
+      try {
+        const info = JSON.parse(trimmedLine);
+        if (info.t !== undefined && info.c) {
+          const text = info.c.map(word => word.tx || '').join('');
+          // Convert ms to LRC format [mm:ss.xxx]
+          const timeMs = info.t;
+          const ms = timeMs % 1000;
+          const totalSec = Math.floor(timeMs / 1000);
+          const min = Math.floor(totalSec / 60);
+          const sec = totalSec % 60;
+          const timeTag = `[${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}]`;
+          lrcLines.push(`${timeTag}${text}`);
+        }
+      } catch (e) {
+        continue;
+      }
+    } else if (/^\[[\d:.]+\]/.test(trimmedLine)) {
+      // Already in LRC format
+      lrcLines.push(trimmedLine);
+    }
+  }
+
+  return lrcLines.length > 0 ? lrcLines.join('\n') : null;
+}
+
 async function getLyric(musicItem) {
   const headers = {
     Referer: "https://y.music.163.com/",
     Origin: "https://y.music.163.com/",
     authority: "music.163.com",
     "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.135 Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
     "Content-Type": "application/x-www-form-urlencoded",
   };
-  const data = { id: musicItem.id, lv: -1, tv: -1, rv: -1, csrf_token: "" };
-  const pae = getParamsAndEnc(JSON.stringify(data));
-  const paeData = qs.stringify(pae);
-  const result = (
-    await (0, axios_1.default)({
-      method: "post",
-      url: `https://interface.music.163.com/weapi/song/lyric?csrf_token=`,
-      headers,
-      data: paeData,
-    })
-  ).data;
-  return {
-    rawLrc: result.lrc?.lyric,
-    translation: result.tlyric?.lyric,
-    romanization: result.romalrc?.lyric,
+
+  // Use eapi to get word-by-word lyrics (yrc)
+  const eapiData = {
+    id: musicItem.id,
+    cp: false,
+    tv: 0,
+    lv: 0,
+    rv: 0,
+    kv: 0,
+    yv: 0,  // yrc (word-by-word) lyrics
+    ytv: 0, // yrc translation
+    yrv: 0, // yrc romanization
   };
+
+  try {
+    const encrypted = eapiEncrypt('/api/song/lyric/v1', eapiData);
+    const result = (
+      await (0, axios_1.default)({
+        method: "post",
+        url: "https://interface3.music.163.com/eapi/song/lyric/v1",
+        headers,
+        data: qs.stringify(encrypted),
+      })
+    ).data;
+
+    if (result.code !== 200) {
+      throw new Error('Failed to get lyrics');
+    }
+
+    // Priority: yrc (word-by-word) > lrc (standard)
+    let rawLrc = null;
+    let translation = null;
+    let romanization = null;
+
+    // Try to use yrc (word-by-word lyrics) first
+    if (result.yrc?.lyric) {
+      rawLrc = parseYrcToQrc(result.yrc.lyric);
+    }
+
+    // Fallback to standard lrc if yrc not available or parsing failed
+    if (!rawLrc && result.lrc?.lyric) {
+      rawLrc = result.lrc.lyric;
+    }
+
+    // Translation: try ytlrc first, then tlyric
+    if (result.ytlrc?.lyric) {
+      translation = parseYrcTrans(result.ytlrc.lyric);
+    }
+    if (!translation && result.tlyric?.lyric) {
+      translation = result.tlyric.lyric;
+    }
+
+    // Romanization: try yromalrc first, then romalrc
+    if (result.yromalrc?.lyric) {
+      romanization = parseYrcTrans(result.yromalrc.lyric);
+    }
+    if (!romanization && result.romalrc?.lyric) {
+      romanization = result.romalrc.lyric;
+    }
+
+    return {
+      rawLrc,
+      translation,
+      romanization,
+    };
+  } catch (error) {
+    // Fallback to weapi if eapi fails
+    console.error('[网易云] eapi获取歌词失败，尝试weapi:', error.message);
+
+    const data = { id: musicItem.id, lv: -1, tv: -1, rv: -1, csrf_token: "" };
+    const pae = getParamsAndEnc(JSON.stringify(data));
+    const paeData = qs.stringify(pae);
+    const result = (
+      await (0, axios_1.default)({
+        method: "post",
+        url: `https://interface.music.163.com/weapi/song/lyric?csrf_token=`,
+        headers: {
+          ...headers,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data: paeData,
+      })
+    ).data;
+
+    return {
+      rawLrc: result.lrc?.lyric,
+      translation: result.tlyric?.lyric,
+      romanization: result.romalrc?.lyric,
+    };
+  }
 }
 async function getMusicInfo(musicBase) {
   const headers = {
@@ -994,7 +1177,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "网易云音乐",
   author: "Toskysun", 
-  version: "0.2.3",
+  version: "0.2.4",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-store",
