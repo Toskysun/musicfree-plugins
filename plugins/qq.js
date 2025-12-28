@@ -126,12 +126,38 @@ function formatMusicItem(_, qualityInfo = {}) {
   const albumname =
     _.albumname ||
     ((_c = _.album) === null || _c === void 0 ? void 0 : _c.title);
-  
-  // 使用从API获取的真实音质信息，如果没有则提供基础支持
+
+  // 优先从歌曲对象的 file 字段提取音质信息
   const songId = _.id || _.songid;
   let qualities = qualityInfo[songId] || {};
-  
-  // 如果没有获取到音质信息，提供基础音质作为降级方案
+
+  // 如果外部没有音质信息，直接从歌曲对象的 file 字段提取
+  if (Object.keys(qualities).length === 0 && _.file) {
+    const file = _.file;
+    if (file.size_128mp3 && file.size_128mp3 !== 0) {
+      qualities['128k'] = { size: file.size_128mp3, bitrate: 128000 };
+    }
+    if (file.size_320mp3 && file.size_320mp3 !== 0) {
+      qualities['320k'] = { size: file.size_320mp3, bitrate: 320000 };
+    }
+    if (file.size_flac && file.size_flac !== 0) {
+      qualities['flac'] = { size: file.size_flac, bitrate: 1411000 };
+    }
+    if (file.size_hires && file.size_hires !== 0) {
+      qualities['hires'] = { size: file.size_hires, bitrate: 1536000 };
+    }
+    if (file.size_new && file.size_new[0] !== 0) {
+      qualities['master'] = { size: file.size_new[0], bitrate: 2304000 };
+    }
+    if (file.size_new && file.size_new[1] !== 0) {
+      qualities['atmos'] = { size: file.size_new[1], bitrate: 1411000 };
+    }
+    if (file.size_new && file.size_new[2] !== 0) {
+      qualities['atmos_plus'] = { size: file.size_new[2], bitrate: 1411000 };
+    }
+  }
+
+  // 最终降级方案：如果仍然没有音质信息
   if (Object.keys(qualities).length === 0) {
     const basicQualities = ['128k', '320k', 'flac'];
     basicQualities.forEach(quality => {
