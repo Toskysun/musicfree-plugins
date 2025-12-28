@@ -8,111 +8,74 @@ const axios_1 = require("axios");
 const CryptoJs = require("crypto-js");
 const he = require("he");
 const pageSize = 20;
-// 批量获取QQ音乐的音质信息
-async function getBatchMusicQualityInfo(songList) {
+
+// 统一的音质解析函数
+function parseQualities(file) {
+  if (!file) return {};
+
+  const qualities = {};
+  if (file.size_128mp3 && file.size_128mp3 !== 0) {
+    qualities['128k'] = { size: file.size_128mp3, bitrate: 128000 };
+  }
+  if (file.size_320mp3 && file.size_320mp3 !== 0) {
+    qualities['320k'] = { size: file.size_320mp3, bitrate: 320000 };
+  }
+  if (file.size_flac && file.size_flac !== 0) {
+    qualities['flac'] = { size: file.size_flac, bitrate: 1411000 };
+  }
+  if (file.size_hires && file.size_hires !== 0) {
+    qualities['hires'] = { size: file.size_hires, bitrate: 1536000 };
+  }
+  if (file.size_new && file.size_new[0] !== 0) {
+    qualities['master'] = { size: file.size_new[0], bitrate: 2304000 };
+  }
+  if (file.size_new && file.size_new[1] !== 0) {
+    qualities['atmos'] = { size: file.size_new[1], bitrate: 1411000 };
+  }
+  if (file.size_new && file.size_new[2] !== 0) {
+    qualities['atmos_plus'] = { size: file.size_new[2], bitrate: 1411000 };
+  }
+  return qualities;
+}
+
+// 批量获取完整音质信息（用于歌单等旧格式数据）
+async function getBatchQualities(songList) {
   if (!songList || songList.length === 0) return {};
-  
+
   try {
     const res = await axios_1.default({
       url: "https://u.y.qq.com/cgi-bin/musicu.fcg",
       method: "POST",
       data: {
-        comm: {
-          ct: '19',
-          cv: '1859',
-          uin: '0',
-        },
+        comm: { ct: '19', cv: '1859', uin: '0' },
         req: {
           module: 'music.trackInfo.UniformRuleCtrl',
           method: 'CgiGetTrackInfo',
           param: {
             types: songList.map(() => 1),
-            ids: songList.map(item => item.id || item.songid),
+            ids: songList.map(item => item.songid || item.id),
             ctx: 0,
           },
         },
       },
       headers: {
         referer: "https://y.qq.com",
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         Cookie: "uin=",
       },
       xsrfCookieName: "XSRF-TOKEN",
       withCredentials: true,
     });
-    
-    const qualityInfoMap = {};
-    
-    if (res.data && res.data.req && res.data.req.data && res.data.req.data.tracks) {
+
+    const qualityMap = {};
+    if (res.data?.req?.data?.tracks) {
       res.data.req.data.tracks.forEach((track) => {
-        const file = track.file;
-        const songId = track.id;
-        const qualities = {};
-        
-        // 128k
-        if (file.size_128mp3 && file.size_128mp3 !== 0) {
-          qualities['128k'] = {
-            size: file.size_128mp3,
-            bitrate: 128000,
-          };
-        }
-        
-        // 320k
-        if (file.size_320mp3 && file.size_320mp3 !== 0) {
-          qualities['320k'] = {
-            size: file.size_320mp3,
-            bitrate: 320000,
-          };
-        }
-        
-        // FLAC
-        if (file.size_flac && file.size_flac !== 0) {
-          qualities['flac'] = {
-            size: file.size_flac,
-            bitrate: 1411000,
-          };
-        }
-        
-        // Hi-Res
-        if (file.size_hires && file.size_hires !== 0) {
-          qualities['hires'] = {
-            size: file.size_hires,
-            bitrate: file.size_hires > 50000000 ? 2304000 : 1536000, // 估算码率
-          };
-        }
-        
-        // Dolby Atmos 全景声
-        if (file.size_new && file.size_new[1] !== 0) {
-          qualities['atmos'] = {
-            size: file.size_new[1],
-            bitrate: 1411000, // Atmos通常基于无损
-          };
-        }
-        
-        // Dolby Atmos Plus
-        if (file.size_new && file.size_new[2] !== 0) {
-          qualities['atmos_plus'] = {
-            size: file.size_new[2],
-            bitrate: 1411000,
-          };
-        }
-        
-        // Master 母带音质
-        if (file.size_new && file.size_new[0] !== 0) {
-          qualities['master'] = {
-            size: file.size_new[0],
-            bitrate: 2304000, // Master通常是Hi-Res级别
-          };
-        }
-        
-        qualityInfoMap[songId] = qualities;
+        qualityMap[track.id] = parseQualities(track.file);
       });
     }
-    
-    return qualityInfoMap;
+    return qualityMap;
   } catch (error) {
-    console.error('Failed to fetch QQ Music quality info:', error);
+    console.error('[QQ音乐] 批量获取音质失败:', error);
     return {};
   }
 }
@@ -127,44 +90,10 @@ function formatMusicItem(_, qualityInfo = {}) {
     _.albumname ||
     ((_c = _.album) === null || _c === void 0 ? void 0 : _c.title);
 
-  // 优先从歌曲对象的 file 字段提取音质信息
+  // 优先使用外部传入的音质信息（批量获取的），否则从 file 字段解析
   const songId = _.id || _.songid;
-  let qualities = qualityInfo[songId] || {};
+  let qualities = qualityInfo[songId] || parseQualities(_.file);
 
-  // 如果外部没有音质信息，直接从歌曲对象的 file 字段提取
-  if (Object.keys(qualities).length === 0 && _.file) {
-    const file = _.file;
-    if (file.size_128mp3 && file.size_128mp3 !== 0) {
-      qualities['128k'] = { size: file.size_128mp3, bitrate: 128000 };
-    }
-    if (file.size_320mp3 && file.size_320mp3 !== 0) {
-      qualities['320k'] = { size: file.size_320mp3, bitrate: 320000 };
-    }
-    if (file.size_flac && file.size_flac !== 0) {
-      qualities['flac'] = { size: file.size_flac, bitrate: 1411000 };
-    }
-    if (file.size_hires && file.size_hires !== 0) {
-      qualities['hires'] = { size: file.size_hires, bitrate: 1536000 };
-    }
-    if (file.size_new && file.size_new[0] !== 0) {
-      qualities['master'] = { size: file.size_new[0], bitrate: 2304000 };
-    }
-    if (file.size_new && file.size_new[1] !== 0) {
-      qualities['atmos'] = { size: file.size_new[1], bitrate: 1411000 };
-    }
-    if (file.size_new && file.size_new[2] !== 0) {
-      qualities['atmos_plus'] = { size: file.size_new[2], bitrate: 1411000 };
-    }
-  }
-
-  // 最终降级方案：如果仍然没有音质信息
-  if (Object.keys(qualities).length === 0) {
-    const basicQualities = ['128k', '320k', 'flac'];
-    basicQualities.forEach(quality => {
-      qualities[quality] = {};
-    });
-  }
-  
   return {
     id: _.id || _.songid,
     songmid: _.mid || _.songmid,
@@ -249,18 +178,9 @@ async function searchBase(query, page, type) {
 }
 async function searchMusic(query, page) {
   const songs = await searchBase(query, page, 0);
-  
-  // 批量获取音质信息
-  let qualityInfoMap = {};
-  try {
-    qualityInfoMap = await getBatchMusicQualityInfo(songs.data);
-  } catch (error) {
-    console.error('Failed to get quality info for QQ Music search:', error);
-  }
-  
   return {
     isEnd: songs.isEnd,
-    data: songs.data.map(song => formatMusicItem(song, qualityInfoMap)),
+    data: songs.data.map(formatMusicItem),
   };
 }
 async function searchAlbum(query, page) {
@@ -389,19 +309,10 @@ async function getAlbumInfo(albumItem) {
       withCredentials: true,
     })
   ).data;
-  
+
   const songList = res.albumSonglist.data.songList.map(item => item.songInfo);
-  
-  // 批量获取音质信息
-  let qualityInfoMap = {};
-  try {
-    qualityInfoMap = await getBatchMusicQualityInfo(songList);
-  } catch (error) {
-    console.error('Failed to get quality info for album:', error);
-  }
-  
   return {
-    musicList: songList.map((songInfo) => formatMusicItem(songInfo, qualityInfoMap)),
+    musicList: songList.map(formatMusicItem),
   };
 }
 async function getArtistSongs(artistItem, page) {
@@ -435,20 +346,10 @@ async function getArtistSongs(artistItem, page) {
       withCredentials: true,
     })
   ).data;
-  
-  const songList = res.singer.data.songlist;
-  
-  // 批量获取音质信息
-  let qualityInfoMap = {};
-  try {
-    qualityInfoMap = await getBatchMusicQualityInfo(songList);
-  } catch (error) {
-    console.error('Failed to get quality info for artist songs:', error);
-  }
-  
+
   return {
     isEnd: res.singer.data.total_song <= page * pageSize,
-    data: songList.map(song => formatMusicItem(song, qualityInfoMap)),
+    data: res.singer.data.songlist.map(formatMusicItem),
   };
 }
 async function getArtistAlbums(artistItem, page) {
@@ -610,20 +511,13 @@ async function importMusicSheet(urlLike) {
   const res = JSON.parse(
     result.replace(/callback\(|MusicJsonCallback\(|jsonCallback\(|\)$/g, "")
   );
-  
-  // 获取歌单歌曲列表
+
   const songList = res.cdlist[0].songlist;
-  
-  // 批量获取音质信息
-  let qualityInfoMap = {};
-  try {
-    qualityInfoMap = await getBatchMusicQualityInfo(songList);
-  } catch (error) {
-    console.error('[QQ音乐] 获取歌单音质信息失败:', error);
-  }
-  
-  // 格式化歌曲列表并附加音质信息
-  return songList.map(song => formatMusicItem(song, qualityInfoMap));
+
+  // 批量获取完整音质信息
+  const qualityInfo = await getBatchQualities(songList);
+
+  return songList.map(song => formatMusicItem(song, qualityInfo));
 }
 async function getTopLists() {
   const list = await (0, axios_1.default)({
@@ -661,19 +555,14 @@ async function getTopListDetail(topListItem) {
     xsrfCookieName: "XSRF-TOKEN",
     withCredentials: true,
   });
-  
+
   const songList = res.data.detail.data.songInfoList;
-  
-  // 批量获取音质信息
-  let qualityInfoMap = {};
-  try {
-    qualityInfoMap = await getBatchMusicQualityInfo(songList);
-  } catch (error) {
-    console.error('Failed to get quality info for top list:', error);
-  }
-  
+
+  // 批量获取完整音质信息
+  const qualityInfo = await getBatchQualities(songList);
+
   return Object.assign(Object.assign({}, topListItem), {
-    musicList: songList.map(song => formatMusicItem(song, qualityInfoMap)),
+    musicList: songList.map(song => formatMusicItem(song, qualityInfo)),
   });
 }
 async function getRecommendSheetTags() {
@@ -903,23 +792,6 @@ async function getMusicInfo(musicBase) {
 
     if (res.data && res.data.req && res.data.req.data && res.data.req.data.tracks && res.data.req.data.tracks[0]) {
       const track = res.data.req.data.tracks[0];
-      const file = track.file || {};
-
-      // 构建音质信息
-      const qualities = {};
-      if (file.size_128mp3 && file.size_128mp3 !== 0) {
-        qualities['128k'] = { size: file.size_128mp3, bitrate: 128000 };
-      }
-      if (file.size_320mp3 && file.size_320mp3 !== 0) {
-        qualities['320k'] = { size: file.size_320mp3, bitrate: 320000 };
-      }
-      if (file.size_flac && file.size_flac !== 0) {
-        qualities['flac'] = { size: file.size_flac, bitrate: 1411000 };
-      }
-      if (file.size_hires && file.size_hires !== 0) {
-        qualities['hires'] = { size: file.size_hires, bitrate: 1536000 };
-      }
-
       const album = track.album || {};
       const singers = track.singer || [];
 
@@ -937,7 +809,7 @@ async function getMusicInfo(musicBase) {
           ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${album.mid}.jpg`
           : undefined,
         duration: track.interval,
-        qualities: qualities,
+        qualities: parseQualities(track.file),
         platform: 'QQ音乐',
       };
     }
@@ -1049,7 +921,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.2.3",
+  version: "0.2.5",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表
