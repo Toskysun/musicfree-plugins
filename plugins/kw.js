@@ -1012,6 +1012,20 @@ async function getMediaSource(musicItem, quality) {
   }
 }
 async function getMusicInfo(musicBase) {
+  // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+    return {
+      id: musicBase.id,
+      title: musicBase.title,
+      artist: musicBase.artist,
+      album: musicBase.album,
+      albumId: musicBase.albumId,
+      artwork: musicBase.artwork,
+      qualities: musicBase.qualities,
+      platform: '酷我音乐',
+    };
+  }
+
   const rid = musicBase.id || musicBase.rid;
   if (!rid) {
     console.error('[酷我] getMusicInfo: 缺少有效的歌曲ID');

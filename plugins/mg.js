@@ -2199,6 +2199,21 @@ async function getMusicComments(musicItem, page = 1) {
 
 // 通过ID获取歌曲完整信息（用于PlayById功能）
 async function getMusicInfo(musicBase) {
+  // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+    return {
+      id: musicBase.id,
+      copyrightId: musicBase.copyrightId,
+      title: musicBase.title,
+      artist: musicBase.artist,
+      album: musicBase.album,
+      albumId: musicBase.albumId,
+      artwork: musicBase.artwork,
+      qualities: musicBase.qualities,
+      platform: '咪咕音乐',
+    };
+  }
+
   const songId = musicBase.id || musicBase.copyrightId || musicBase.songId;
   if (!songId) {
     console.error('[咪咕] getMusicInfo: 缺少有效的歌曲ID');

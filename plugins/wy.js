@@ -695,6 +695,20 @@ async function getLyric(musicItem) {
   }
 }
 async function getMusicInfo(musicBase) {
+  // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+    return {
+      id: musicBase.id,
+      title: musicBase.title,
+      artist: musicBase.artist,
+      album: musicBase.album,
+      albumId: musicBase.albumId,
+      artwork: musicBase.artwork,
+      qualities: musicBase.qualities,
+      platform: '网易云音乐',
+    };
+  }
+
   const headers = {
     Referer: "https://y.music.163.com/",
     Origin: "https://y.music.163.com/",

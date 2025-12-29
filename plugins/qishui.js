@@ -338,6 +338,20 @@ async function getMusicDetailInfo(musicItem) {
  * @returns {Promise<Object>} 音乐完整信息
  */
 async function getMusicInfo(musicBase) {
+  // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+    return {
+      id: musicBase.id,
+      title: musicBase.title,
+      artist: musicBase.artist,
+      album: musicBase.album,
+      albumId: musicBase.albumId,
+      artwork: musicBase.artwork,
+      qualities: musicBase.qualities,
+      platform: '汽水音乐',
+    };
+  }
+
   const songId = musicBase.id || musicBase.item_id;
   if (!songId) {
     console.error('[汽水音乐] getMusicInfo: 缺少有效的歌曲ID');

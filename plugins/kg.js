@@ -1688,6 +1688,21 @@ async function getMusicInfoRaw(hash) {
 
 // 通过hash获取歌曲完整信息（用于PlayById功能）
 async function getMusicInfo(musicBase) {
+  // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+    return {
+      id: musicBase.id,
+      hash: musicBase.hash || musicBase.id,
+      title: musicBase.title,
+      artist: musicBase.artist,
+      album: musicBase.album,
+      album_id: musicBase.album_id,
+      artwork: musicBase.artwork,
+      qualities: musicBase.qualities,
+      platform: '酷狗音乐',
+    };
+  }
+
   const hash = musicBase.hash || musicBase.id;
   if (!hash) {
     console.error('[酷狗] getMusicInfo: 缺少有效的hash');

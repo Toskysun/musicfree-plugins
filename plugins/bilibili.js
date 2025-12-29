@@ -643,6 +643,23 @@ async function getMusicComments(musicItem) {
 
 // Get full music info for PlayById feature
 async function getMusicInfo(musicBase) {
+    // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+    if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+        return {
+            id: musicBase.id,
+            bvid: musicBase.bvid,
+            aid: musicBase.aid,
+            cid: musicBase.cid,
+            title: musicBase.title,
+            artist: musicBase.artist,
+            album: musicBase.album,
+            artwork: musicBase.artwork,
+            duration: musicBase.duration,
+            qualities: musicBase.qualities,
+            platform: 'bilibili',
+        };
+    }
+
     // Support various ID formats: bvid, aid, or just id
     const bvid = musicBase.bvid || (typeof musicBase.id === 'string' && musicBase.id.startsWith('BV') ? musicBase.id : null);
     const aid = musicBase.aid || (typeof musicBase.id === 'number' || (typeof musicBase.id === 'string' && /^\d+$/.test(musicBase.id)) ? musicBase.id : null);

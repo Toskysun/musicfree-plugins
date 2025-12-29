@@ -752,6 +752,24 @@ async function getMusicInfoForComment(musicItem) {
 
 // 通过ID/songmid获取歌曲详细信息
 async function getMusicInfo(musicBase) {
+  // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
+  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+    return {
+      id: musicBase.id,
+      songid: musicBase.songid || musicBase.id,
+      songmid: musicBase.songmid || musicBase.mid,
+      mid: musicBase.mid || musicBase.songmid,
+      title: musicBase.title,
+      artist: musicBase.artist,
+      album: musicBase.album,
+      albumid: musicBase.albumid,
+      albummid: musicBase.albummid,
+      artwork: musicBase.artwork,
+      qualities: musicBase.qualities,
+      platform: 'QQ音乐',
+    };
+  }
+
   try {
     const songmid = musicBase.songmid || musicBase.mid || musicBase.id;
     const songid = musicBase.id || musicBase.songid;
