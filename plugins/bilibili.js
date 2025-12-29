@@ -153,6 +153,13 @@ function formatMedia(result) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     const title = he.decode((_b = (_a = result.title) === null || _a === void 0 ? void 0 : _a.replace(/(\<em(.*?)\>)|(\<\/em\>)/g, "")) !== null && _b !== void 0 ? _b : "");
 
+    // 提供默认音质信息，避免播放时重复请求
+    const qualities = {
+        "128k": {},
+        "192k": {},
+        "320k": {},
+    };
+
     return {
         id: (_d = (_c = result.cid) !== null && _c !== void 0 ? _c : result.bvid) !== null && _d !== void 0 ? _d : result.aid,
         aid: result.aid,
@@ -167,6 +174,7 @@ function formatMedia(result) {
         duration: durationToSec(result.duration),
         tags: (_k = result.tag) === null || _k === void 0 ? void 0 : _k.split(","),
         date: dayjs.unix(result.pubdate || result.created).format("YYYY-MM-DD"),
+        qualities: qualities,
     };
 }
 // Helper function to get playurl data (use non-WBI API for stability)
@@ -598,6 +606,11 @@ async function importMusicSheet(urlLike) {
             artist: (_a = _.upper) === null || _a === void 0 ? void 0 : _a.name,
             album: (_b = _.bvid) !== null && _b !== void 0 ? _b : _.aid,
             duration: durationToSec(_.duration),
+            qualities: {
+                "128k": {},
+                "192k": {},
+                "320k": {},
+            },
         });
     });
 }
