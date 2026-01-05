@@ -15,6 +15,15 @@ const SOURCE_MAP = {
   'lingchuan': 'https://lc.guoyue2010.top/api/music'
 };
 
+// 音源对应的Header名称
+// ikun/ikun-backup 使用 X-Request-Key，其他使用 X-API-Key
+const SOURCE_HEADER_MAP = {
+  'ikun': 'X-Request-Key',
+  'ikun-backup': 'X-Request-Key',
+  'xinlan': 'X-API-Key',
+  'lingchuan': 'X-API-Key'
+};
+
 // 默认音源（如果未指定）
 const DEFAULT_SOURCE = 'ikun-backup';
 
@@ -163,12 +172,18 @@ exports.handler = async (event, context) => {
     // 替换占位符
     // 1. 替换 {{API_URL}} 为实际的音源地址（所有插件都需要）
     // 2. 替换 {{API_KEY}} 为实际的 key（仅需要 key 的插件）
-    // 3. 替换 {{UPDATE_URL}} 为完整的更新链接（包含 source 和 key）
+    // 3. 替换 {{AUTH_HEADER}} 为对应的Header名称（根据source决定）
+    // 4. 替换 {{UPDATE_URL}} 为完整的更新链接（包含 source 和 key）
     let modifiedContent = pluginContent;
 
     // 替换 API_URL 占位符
     modifiedContent = modifiedContent.replace(/\{\{API_URL\}\}/g, apiUrl);
     console.log(`Replaced {{API_URL}} with: ${apiUrl}`);
+
+    // 替换 AUTH_HEADER 占位符（根据source选择对应的Header名称）
+    const authHeader = SOURCE_HEADER_MAP[source];
+    modifiedContent = modifiedContent.replace(/\{\{AUTH_HEADER\}\}/g, authHeader);
+    console.log(`Replaced {{AUTH_HEADER}} with: ${authHeader}`);
 
     // 替换 API_KEY 占位符
     if (requiresKey) {

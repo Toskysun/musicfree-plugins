@@ -980,9 +980,8 @@ async function getMediaSource(musicItem, quality) {
         `${API_URL}/url?source=wy&songId=${musicItem.id}&quality=${qualityParam}`,
         {
           "headers": {
-            "X-Request-Key": API_KEY,
-            "X-API-Key": API_KEY,
-            "User-Agent": "MusicFree/2.0.0"
+            "{{AUTH_HEADER}}": API_KEY,
+            "User-Agent": "lx-music-mobile/2.0.0"
           },
           "timeout": 10000
         }
