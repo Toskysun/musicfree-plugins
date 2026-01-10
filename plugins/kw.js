@@ -857,9 +857,17 @@ async function getRecommendSheetsByTag(tag, page) {
           `http://mobileinterfaces.kuwo.cn/er.s?type=get_pc_qz_data&f=web&id=${tag.id}&prod=pc`
         )
       ).data;
+      const list = digest43Result.reduce((prev, curr) => [...prev, ...(curr.list || [])], []);
       res = {
-        total: 0,
-        data: digest43Result.reduce((prev, curr) => [...prev, ...curr.list]),
+        total: list.length,
+        data: list.map(item => ({
+          id: item.id,
+          name: item.name,
+          img: item.img,
+          uname: '',
+          listencnt: 0,
+          uid: 0,
+        })),
       };
     }
   } else {
