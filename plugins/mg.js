@@ -2116,7 +2116,9 @@ async function getMediaSource(musicItem, quality) {
         {
           headers: {
             "{{AUTH_HEADER}}": API_KEY,
-            "User-Agent": "lx-music-mobile/2.0.0"
+            "User-Agent": "lx-music-mobile/2.0.0",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
           },
           "timeout": 10000
         }
