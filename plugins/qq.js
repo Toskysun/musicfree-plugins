@@ -648,17 +648,63 @@ async function getMusicSheetInfo(sheet, page) {
     musicList: data,
   };
 }
-// MusicFree标准音质键映射 
+// MusicFree标准音质键映射
 const qualityLevels = {
   "128k": "128k",
   "320k": "320k",
-  "flac": "flac", 
+  "flac": "flac",
   "flac24bit": "flac24bit",
   "hires": "hires",
   "atmos": "atmos",
   "atmos_plus": "atmos_plus",
   "master": "master",
 };
+
+// 获取QQ音乐CDN加速地址
+async function getQQCdnUrl() {
+  try {
+    const res = await axios_1.default.post(
+      'https://u6.y.qq.com/cgi-bin/musicu.fcg?cgiKey=GetCdnDispatch',
+      {
+        "comm": {
+          "ct": "11",
+          "cv": "20000008",
+          "v": "20000008",
+          "tmeAppID": "qqmusic"
+        },
+        "req": {
+          "module": "music.audioCdnDispatch.cdnDispatch",
+          "method": "GetCdnDispatch",
+          "param": {
+            "guid": "ffffffff9cab30420000019b8db3f7bf",
+            "uid": "0",
+            "use_new_domain": 1,
+            "use_ipv6": 1
+          }
+        }
+      },
+      {
+        headers: {
+          'User-Agent': 'QQMusic 20000008(android 12)',
+          'Connection': 'Keep-Alive',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    const data = res.data;
+    if (!data || isNaN(Number(data.code))) {
+      return "http://ws.stream.qqmusic.qq.com/";
+    }
+    const sipList = data.req?.data?.freeflowsip;
+    if (sipList && sipList.length > 0) {
+      return sipList[Math.floor(Math.random() * sipList.length)];
+    }
+    return "http://ws.stream.qqmusic.qq.com/";
+  } catch (e) {
+    console.error('[QQ音乐] 获取CDN地址失败:', e.message);
+    return "http://ws.stream.qqmusic.qq.com/";
+  }
+}
 
 async function getMediaSource(musicItem, quality) {
   try {
@@ -690,6 +736,13 @@ async function getMediaSource(musicItem, quality) {
     ).data;
     
     if (res.code === 200 && res.url) {
+      // 处理clientcdn情况，需要拼接CDN地址
+      if (res.clientcdn) {
+        const cdnUrl = await getQQCdnUrl();
+        return {
+          url: cdnUrl + res.url
+        };
+      }
       return {
         url: res.url
       };
