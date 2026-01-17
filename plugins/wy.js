@@ -895,10 +895,10 @@ async function getSheetMusicById(id) {
 }
 async function importMusicSheet(urlLike) {
   const matchResult = urlLike.match(
-    /(?:https:\/\/y\.music\.163.com\/m\/playlist\?id=([0-9]+))|(?:https?:\/\/music\.163\.com\/playlist\/([0-9]+)\/.*)|(?:https?:\/\/music.163.com(?:\/#)?\/playlist\?id=(\d+))|(?:^\s*(\d+)\s*$)/
+    /(?:https:\/\/y\.music\.163.com\/m\/playlist\?id=([0-9]+))|(?:https?:\/\/music\.163\.com\/m\/playlist\?id=([0-9]+))|(?:https?:\/\/music\.163\.com\/playlist\/([0-9]+)\/.*)|(?:https?:\/\/music.163.com(?:\/#)?\/playlist\?id=(\d+))|(?:^\s*(\d+)\s*$)/
   );
   const id =
-    matchResult[1] || matchResult[2] || matchResult[3] || matchResult[4];
+    matchResult[1] || matchResult[2] || matchResult[3] || matchResult[4] || matchResult[5];
   return getSheetMusicById(id);
 }
 async function getTopLists() {
@@ -1191,8 +1191,8 @@ async function getMusicComments(musicItem, page = 1) {
 }
 module.exports = {
   platform: "网易云音乐",
-  author: "Toskysun", 
-  version: "0.2.5",
+  author: "Toskysun",
+  version: "0.2.6",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-store",
