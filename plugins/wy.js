@@ -291,6 +291,7 @@ function formatMusicItem(_) {
   const singerList = artists.map(ar => ({
     id: ar.id,
     name: ar.name,
+    avatar: ar.img1v1Url || ar.picUrl || "",
   }));
 
   return {
@@ -318,6 +319,7 @@ async function formatMusicItemWithQuality(_, qualityInfo = {}) {
   const singerList = artists.map(ar => ({
     id: ar.id,
     name: ar.name,
+    avatar: ar.img1v1Url || ar.picUrl || "",
   }));
 
   return {

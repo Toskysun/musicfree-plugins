@@ -101,6 +101,7 @@ function formatMusicItem(_, qualityInfo = {}) {
     id: s.id,
     mid: s.mid,
     name: s.name,
+    avatar: s.mid ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${s.mid}.jpg` : "",
   }));
 
   return {

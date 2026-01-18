@@ -322,6 +322,7 @@ async function searchMusic(query, page) {
         const singerList = (item.singerList || []).map(s => ({
           id: s.id || s.singerId,
           name: s.name || s.singerName,
+          avatar: s.img || s.singerPic || "",
         }));
 
         musics.push({
@@ -1480,6 +1481,7 @@ async function getMusicSheetInfo(sheet, page) {
           const singerList = (item.singers || []).map(s => ({
             id: s.id || s.singerId,
             name: s.name || s.singerName,
+            avatar: s.img || s.singerPic || "",
           }));
 
           return {

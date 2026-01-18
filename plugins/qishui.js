@@ -100,6 +100,7 @@ function parseSearchResultItem(searchItem) {
   const singerList = (authorInfo.id || authorInfo.name) ? [{
     id: authorInfo.id,
     name: authorInfo.name,
+    avatar: authorInfo.avatar || "",
   }] : [];
 
   return {
@@ -138,6 +139,7 @@ function parseRankTrackItem(rankItem) {
   const singerList = (track.artists || []).map(a => ({
     id: a.id,
     name: a.name,
+    avatar: a.avatar || "",
   }));
 
   return {
@@ -178,6 +180,7 @@ function parseTrackItem(track) {
   const singerList = (track.artists || []).map(a => ({
     id: a.id,
     name: a.name,
+    avatar: a.avatar || "",
   }));
 
   return {
@@ -413,6 +416,7 @@ async function getMusicInfo(musicBase) {
     const singerList = (authorInfo.id || authorInfo.name) ? [{
       id: authorInfo.id,
       name: authorInfo.name,
+      avatar: authorInfo.avatar || "",
     }] : [];
 
     return {

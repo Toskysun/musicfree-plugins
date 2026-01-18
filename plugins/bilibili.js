@@ -165,6 +165,7 @@ function formatMedia(result) {
     const singerList = (owner.mid || owner.name) ? [{
         id: owner.mid,
         name: owner.name || result.author,
+        avatar: owner.face || "",
     }] : [];
 
     return {
@@ -762,6 +763,7 @@ async function getMusicInfo(musicBase) {
         const singerList = (owner.mid || owner.name) ? [{
             id: owner.mid,
             name: owner.name,
+            avatar: owner.face || "",
         }] : [];
 
         return {
@@ -799,7 +801,7 @@ function formatFileSize(bytes) {
 module.exports = {
     platform: "bilibili",
     appVersion: ">=0.0",
-    version: "0.2.6",
+    version: "0.2.7",
     author: "Toskysun",
     cacheControl: "no-cache",
     srcUrl: "https://musicfree-plugins.netlify.app/plugins/bilibili.js",

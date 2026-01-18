@@ -132,6 +132,7 @@ function formatMusicItem(_) {
   const singerList = _.ARTISTID ? [{
     id: _.ARTISTID,
     name: he.decode(_.ARTIST || ""),
+    avatar: artworkShort2Long(_.web_artistpic_short) || "",
   }] : [];
 
   return {
