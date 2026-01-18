@@ -159,11 +159,19 @@ function formatMusicItem(_, qualityInfo = {}) {
     });
   }
 
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  const singers = _.Singers || [];
+  const singerList = singers.map(s => ({
+    id: s.id,
+    name: s.name,
+  }));
+
   return {
     id: fileHash,
     title: (_a = _.SongName) !== null && _a !== void 0 ? _a : _.OriSongName,
     artist:
-      (_b = _.SingerName) !== null && _b !== void 0 ? _b : _.Singers[0].name,
+      (_b = _.SingerName) !== null && _b !== void 0 ? _b : singers.map(s => s.name).join(', '),
+    singerList: singerList,
     album:
       (_c = _.AlbumName) !== null && _c !== void 0 ? _c : _.Grp[0].AlbumName,
     album_id:
@@ -196,15 +204,23 @@ function formatExpandedMusicItem(_, qualityInfo = {}) {
   }
 
   // 处理歌手信息
+  const singers = _.Singers || [];
   let artist = _.SingerName;
-  if (!artist && _.Singers && _.Singers.length > 0) {
-    artist = _.Singers.map(s => s.name).join(', ');
+  if (!artist && singers.length > 0) {
+    artist = singers.map(s => s.name).join(', ');
   }
+
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  const singerList = singers.map(s => ({
+    id: s.id,
+    name: s.name,
+  }));
 
   return {
     id: fileHash,
     title: _.SongName || _.OriSongName || '',
     artist: artist || '',
+    singerList: singerList,
     album: _.AlbumName || '',
     album_id: _.AlbumID || 0,
     album_audio_id: 0,
@@ -218,16 +234,23 @@ function formatExpandedMusicItem(_, qualityInfo = {}) {
 }
 function formatMusicItem2(_) {
   var _a, _b, _c, _d, _e, _f, _g;
-  
+
   // 构建符合MusicFree标准的音质对象
   const qualities = {};
-  
+
   // 酷狗音乐支持的基础音质，为基础音质提供支持
   const commonQualities = ['128k', '320k', 'flac'];
   commonQualities.forEach(quality => {
     qualities[quality] = {};
   });
-  
+
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  const authors = _.authors || [];
+  const singerList = authors.map(a => ({
+    id: a.author_id,
+    name: a.author_name,
+  }));
+
   return {
     id: _.hash,
     title: _.songname,
@@ -256,6 +279,7 @@ function formatMusicItem2(_) {
               : _e[0]) === null || _f === void 0
             ? void 0
             : _f.trim()),
+    singerList: singerList,
     album: (_g = _.album_name) !== null && _g !== void 0 ? _g : _.remark,
     album_id: _.album_id,
     album_audio_id: _.album_audio_id,
@@ -1965,7 +1989,7 @@ async function getMusicComments(musicItem, page = 1) {
 }
 module.exports = {
   platform: "酷狗音乐",
-  version: "0.2.6",
+  version: "0.2.7",
   author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,

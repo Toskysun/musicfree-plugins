@@ -95,10 +95,18 @@ function parseSearchResultItem(searchItem) {
     "flac": { bitrate: 1411000 },
   };
 
+  // 保存作者信息，用于详情跳转
+  const authorInfo = searchItem.author_info || {};
+  const singerList = (authorInfo.id || authorInfo.name) ? [{
+    id: authorInfo.id,
+    name: authorInfo.name,
+  }] : [];
+
   return {
     "id": searchItem.item_id,
     "title": searchItem.title + vipLabel,
     "artist": searchItem.author_info.name,
+    "singerList": singerList,
     "artwork": searchItem.cover_url,
     "qualities": qualities
   };
@@ -126,11 +134,18 @@ function parseRankTrackItem(rankItem) {
     "flac": { bitrate: 1411000 },
   };
 
+  // 保存歌手信息列表，用于详情跳转
+  const singerList = (track.artists || []).map(a => ({
+    id: a.id,
+    name: a.name,
+  }));
+
   return {
     "id": track.id,
     "title": track.name + vipLabel,
     "artist": track.artists[0].name,
     "artistId": track.artists[0].id,
+    "singerList": singerList,
     "album": track.album.name,
     "albumId": track.album.id,
     "artwork": buildDouyinImageUrl(coverUri, coverTemplate),
@@ -159,11 +174,18 @@ function parseTrackItem(track) {
     "flac": { bitrate: 1411000 },
   };
 
+  // 保存歌手信息列表，用于详情跳转
+  const singerList = (track.artists || []).map(a => ({
+    id: a.id,
+    name: a.name,
+  }));
+
   return {
     "id": track.id,
     "title": track.name + vipLabel,
     "artist": track.artists[0].name,
     "artistId": track.artists[0].id,
+    "singerList": singerList,
     "album": track.album.name,
     "albumId": track.album.id,
     "artwork": buildDouyinImageUrl(coverUri, coverTemplate),
@@ -386,6 +408,13 @@ async function getMusicInfo(musicBase) {
       "flac": { bitrate: 1411000 },
     };
 
+    // 构建歌手列表
+    const authorInfo = item.author_info || {};
+    const singerList = (authorInfo.id || authorInfo.name) ? [{
+      id: authorInfo.id,
+      name: authorInfo.name,
+    }] : [];
+
     return {
       id: songId,
       title: (item.title || '') + vipLabel,
@@ -395,6 +424,7 @@ async function getMusicInfo(musicBase) {
       duration: item.duration ? Math.floor(item.duration / 1000) : undefined,
       qualities: qualities,
       platform: '汽水音乐',
+      singerList,
     };
   } catch (error) {
     console.error('[汽水音乐] getMusicInfo 错误:', error.message);
@@ -805,7 +835,7 @@ async function getMusicPlaylistInfo(playlist) {
 
 module.exports = {
   "platform": "汽水音乐",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": "Toskysun",
   "appVersion": ">0.1.0-alpha.0",
   "srcUrl": "https://musicfree-plugins.netlify.app/plugins/qishui.js",

@@ -113,12 +113,12 @@ function parseKuWoQualityInfo(nMInfo) {
 function formatMusicItem(_) {
   // 构建符合MusicFree标准的音质对象，基于N_MINFO字段的真实数据
   let qualities = {};
-  
+
   // 如果有N_MINFO字段，使用它来精确获取音质信息
   if (_.N_MINFO) {
     qualities = parseKuWoQualityInfo(_.N_MINFO);
   }
-  
+
   // 如果没有解析到音质信息，提供基础音质作为降级方案
   if (Object.keys(qualities).length === 0) {
     const supportedQualities = ['128k', '320k', 'flac'];
@@ -126,12 +126,20 @@ function formatMusicItem(_) {
       qualities[quality] = {};
     });
   }
-  
+
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  // 酷我音乐通常只有单个歌手信息
+  const singerList = _.ARTISTID ? [{
+    id: _.ARTISTID,
+    name: he.decode(_.ARTIST || ""),
+  }] : [];
+
   return {
     id: _.MUSICRID.replace("MUSIC_", ""),
     artwork: artworkShort2Long(_.web_albumpic_short),
     title: he.decode(_.NAME || ""),
     artist: he.decode(_.ARTIST || ""),
+    singerList: singerList,
     album: he.decode(_.ALBUM || ""),
     albumId: _.ALBUMID,
     artistId: _.ARTISTID,
@@ -1168,7 +1176,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "酷我音乐",
   author: "Toskysun",
-  version: "0.2.5",
+  version: "0.2.6",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",

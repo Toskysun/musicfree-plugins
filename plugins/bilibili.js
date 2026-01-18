@@ -160,11 +160,19 @@ function formatMedia(result) {
         "320k": {},
     };
 
+    // 保存UP主信息，用于详情跳转
+    const owner = result.owner || {};
+    const singerList = (owner.mid || owner.name) ? [{
+        id: owner.mid,
+        name: owner.name || result.author,
+    }] : [];
+
     return {
         id: (_d = (_c = result.cid) !== null && _c !== void 0 ? _c : result.bvid) !== null && _d !== void 0 ? _d : result.aid,
         aid: result.aid,
         bvid: result.bvid,
         artist: (_e = result.author) !== null && _e !== void 0 ? _e : (_f = result.owner) === null || _f === void 0 ? void 0 : _f.name,
+        singerList: singerList,
         title,
         alias: (_g = title.match(/《(.+?)》/)) === null || _g === void 0 ? void 0 : _g[1],
         album: (_h = result.bvid) !== null && _h !== void 0 ? _h : result.aid,
@@ -749,6 +757,13 @@ async function getMusicInfo(musicBase) {
             artwork = "http:" + artwork;
         }
 
+        // 保存UP主信息，用于详情跳转
+        const owner = videoData.owner || {};
+        const singerList = (owner.mid || owner.name) ? [{
+            id: owner.mid,
+            name: owner.name,
+        }] : [];
+
         return {
             id: cid || bvid || aid,
             bvid: videoData.bvid,
@@ -756,6 +771,7 @@ async function getMusicInfo(musicBase) {
             cid: cid,
             title: videoData.title || '',
             artist: videoData.owner?.name || '',
+            singerList: singerList,
             album: videoData.bvid || videoData.aid,
             artwork: artwork,
             duration: videoData.duration,
@@ -783,7 +799,7 @@ function formatFileSize(bytes) {
 module.exports = {
     platform: "bilibili",
     appVersion: ">=0.0",
-    version: "0.2.5",
+    version: "0.2.6",
     author: "Toskysun",
     cacheControl: "no-cache",
     srcUrl: "https://musicfree-plugins.netlify.app/plugins/bilibili.js",

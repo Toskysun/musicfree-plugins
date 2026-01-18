@@ -96,11 +96,19 @@ function formatMusicItem(_, qualityInfo = {}) {
   const songId = _.id || _.songid;
   let qualities = qualityInfo[songId] || parseQualities(_.file);
 
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  const singerList = (_.singer || []).map(s => ({
+    id: s.id,
+    mid: s.mid,
+    name: s.name,
+  }));
+
   return {
     id: _.id || _.songid,
     songmid: _.mid || _.songmid,
     title: _.title || _.songname,
     artist: _.singer.map((s) => s.name).join(", "),
+    singerList: singerList,
     artwork: albummid
       ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${albummid}.jpg`
       : undefined,
@@ -915,6 +923,13 @@ async function getMusicInfo(musicBase) {
       const album = track.album || {};
       const singers = track.singer || [];
 
+      // 保存完整的歌手信息列表，用于歌手详情跳转
+      const singerList = singers.map(s => ({
+        id: s.id,
+        mid: s.mid,
+        name: s.name,
+      }));
+
       return {
         id: track.id,
         songid: track.id,
@@ -922,6 +937,7 @@ async function getMusicInfo(musicBase) {
         mid: track.mid,
         title: track.title || track.name,
         artist: singers.map(s => s.name).join(', '),
+        singerList: singerList,
         album: album.title || album.name,
         albumid: album.id,
         albummid: album.mid,
@@ -1049,7 +1065,7 @@ getQQCdnUrl().then((value) => {
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.2.7",
+  version: "0.2.8",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表

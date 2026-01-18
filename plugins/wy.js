@@ -285,12 +285,20 @@ function formatMusicItem(_) {
     qualities['128k'] = { bitrate: 128000 };
     qualities['320k'] = { bitrate: 320000 };
   }
-  
+
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  const artists = _.ar || _.artists || [];
+  const singerList = artists.map(ar => ({
+    id: ar.id,
+    name: ar.name,
+  }));
+
   return {
     id: _.id,
     artwork: album === null || album === void 0 ? void 0 : album.picUrl,
     title: _.name,
-    artist: (_.ar || _.artists)[0].name,
+    artist: artists.map(ar => ar.name).join(', '),
+    singerList: singerList,
     album: album === null || album === void 0 ? void 0 : album.name,
     albumId: album === null || album === void 0 ? void 0 : album.id,
     url: `https://share.duanx.cn/url/wy/${_.id}/128k`,
@@ -304,12 +312,20 @@ function formatMusicItem(_) {
 async function formatMusicItemWithQuality(_, qualityInfo = {}) {
   const album = _.al || _.album;
   const qualities = qualityInfo || {};
-  
+
+  // 保存完整的歌手信息列表，用于歌手详情跳转
+  const artists = _.ar || _.artists || [];
+  const singerList = artists.map(ar => ({
+    id: ar.id,
+    name: ar.name,
+  }));
+
   return {
     id: _.id,
     artwork: album === null || album === void 0 ? void 0 : album.picUrl,
     title: _.name,
-    artist: (_.ar || _.artists)[0].name,
+    artist: artists.map(ar => ar.name).join(', '),
+    singerList: singerList,
     album: album === null || album === void 0 ? void 0 : album.name,
     albumId: album === null || album === void 0 ? void 0 : album.id,
     url: `https://share.duanx.cn/url/wy/${_.id}/128k`,
@@ -1192,7 +1208,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "网易云音乐",
   author: "Toskysun",
-  version: "0.2.6",
+  version: "0.2.7",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-store",

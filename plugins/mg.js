@@ -318,11 +318,18 @@ async function searchMusic(query, page) {
         let artwork = item.img3 || item.img2 || item.img1 || null;
         if (artwork && !/https?:/.test(artwork)) artwork = 'http://d.musicapp.migu.cn' + artwork;
 
+        // 保存完整的歌手信息列表，用于歌手详情跳转
+        const singerList = (item.singerList || []).map(s => ({
+          id: s.id || s.singerId,
+          name: s.name || s.singerName,
+        }));
+
         musics.push({
           id: item.songId,
           artwork: artwork,
           title: item.name || item.songName,
           artist: formatSingerName(item.singerList) || item.artist,
+          singerList: singerList,
           album: item.album || item.albumName,
           url: item.mp3 || item.listenUrl,
           copyrightId: item.copyrightId,
@@ -376,16 +383,23 @@ async function searchMusic(query, page) {
           bitrate: 128000,
         };
       }
-      
+
       // 处理封面图片URL
       let artwork = _.picL || _.picM || _.picS || _.cover || _.songPic || null;
       if (artwork && !/https?:/.test(artwork)) artwork = 'http://d.musicapp.migu.cn' + artwork;
+
+      // 保存完整的歌手信息列表，用于歌手详情跳转
+      const singerList = _.singerId ? [{
+        id: _.singerId,
+        name: _.artist,
+      }] : [];
 
       return {
         id: _.id,
         artwork: artwork,
         title: _.songName,
         artist: _.artist,
+        singerList: singerList,
         album: _.albumName,
         url: musicCanPlayFilter(_),
         copyrightId: _.copyrightId,
@@ -1461,7 +1475,13 @@ async function getMusicSheetInfo(sheet, page) {
           if (Object.keys(qualities).length === 0) {
             qualities['128k'] = { size: 'N/A', bitrate: 128000 };
           }
-          
+
+          // 保存完整的歌手信息列表，用于歌手详情跳转
+          const singerList = (item.singers || []).map(s => ({
+            id: s.id || s.singerId,
+            name: s.name || s.singerName,
+          }));
+
           return {
             id: item.songId || item.copyrightId || item.id,
             artwork: formatImgUrl(
@@ -1471,6 +1491,7 @@ async function getMusicSheetInfo(sheet, page) {
             ),
             title: item.songName || item.name,
             artist: item.singer || formatSingerName(item.singers),
+            singerList: singerList,
             album: item.album || item.albumName,
             copyrightId: item.copyrightId,
             singerId: item.singerId,
@@ -2272,11 +2293,18 @@ async function getMusicInfo(musicBase) {
             let artwork = item.img3 || item.img2 || item.img1 || null;
             if (artwork && !/https?:/.test(artwork)) artwork = 'http://d.musicapp.migu.cn' + artwork;
 
+            // 保存完整的歌手信息列表，用于歌手详情跳转
+            const singerList = (item.singerList || []).map(s => ({
+              id: s.id || s.singerId,
+              name: s.name || s.singerName,
+            }));
+
             return {
               id: item.songId,
               copyrightId: item.copyrightId,
               title: item.name || item.songName,
               artist: formatSingerName(item.singerList) || item.artist,
+              singerList: singerList,
               album: item.album || item.albumName,
               albumId: item.albumId,
               artwork: artwork,
@@ -2300,7 +2328,7 @@ async function getMusicInfo(musicBase) {
 module.exports = {
   platform: "咪咕音乐",
   author: "Toskysun",
-  version: "0.2.6",
+  version: "0.2.7",
   appVersion: ">0.1.0-alpha.0",
   // 声明插件支持的音质列表（基于咪咕音乐实际提供的音质）
   supportedQualities: ["128k", "320k", "flac", "hires"],
