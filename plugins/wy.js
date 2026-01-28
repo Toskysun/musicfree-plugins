@@ -612,6 +612,23 @@ function parseYrcTrans(yrcContent) {
   return lrcLines.length > 0 ? lrcLines.join('\n') : null;
 }
 
+// Normalize NetEase non-standard LRC timestamps like [mm:ss:cc] -> [mm:ss.ccc]
+// Example: [00:13:71] => [00:13.710]
+function normalizeColonTimeTag(lrcContent) {
+  if (!lrcContent) return lrcContent;
+
+  const timeTagPattern = /\[(\d+):([0-5]?\d):(\d{1,3})\]/g;
+  if (!timeTagPattern.test(lrcContent)) return lrcContent;
+
+  return lrcContent.replace(timeTagPattern, (_, min, sec, frac) => {
+    let ms = frac;
+    if (ms.length === 1) ms = `${ms}00`;
+    else if (ms.length === 2) ms = `${ms}0`;
+    else if (ms.length > 3) ms = ms.slice(0, 3);
+    return `[${min}:${sec}.${ms}]`;
+  });
+}
+
 async function getLyric(musicItem) {
   const headers = {
     Referer: "https://y.music.163.com/",
@@ -662,7 +679,7 @@ async function getLyric(musicItem) {
 
     // Fallback to standard lrc if yrc not available or parsing failed
     if (!rawLrc && result.lrc?.lyric) {
-      rawLrc = result.lrc.lyric;
+      rawLrc = normalizeColonTimeTag(result.lrc.lyric);
     }
 
     // Translation: try ytlrc first, then tlyric
@@ -670,7 +687,7 @@ async function getLyric(musicItem) {
       translation = parseYrcTrans(result.ytlrc.lyric);
     }
     if (!translation && result.tlyric?.lyric) {
-      translation = result.tlyric.lyric;
+      translation = normalizeColonTimeTag(result.tlyric.lyric);
     }
 
     // Romanization: try yromalrc first, then romalrc
@@ -678,7 +695,7 @@ async function getLyric(musicItem) {
       romanization = parseYrcTrans(result.yromalrc.lyric);
     }
     if (!romanization && result.romalrc?.lyric) {
-      romanization = result.romalrc.lyric;
+      romanization = normalizeColonTimeTag(result.romalrc.lyric);
     }
 
     return {
@@ -706,9 +723,9 @@ async function getLyric(musicItem) {
     ).data;
 
     return {
-      rawLrc: result.lrc?.lyric,
-      translation: result.tlyric?.lyric,
-      romanization: result.romalrc?.lyric,
+      rawLrc: normalizeColonTimeTag(result.lrc?.lyric),
+      translation: normalizeColonTimeTag(result.tlyric?.lyric),
+      romanization: normalizeColonTimeTag(result.romalrc?.lyric),
     };
   }
 }
@@ -1210,7 +1227,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "网易云音乐",
   author: "Toskysun",
-  version: "0.2.7",
+  version: "0.2.8",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-store",

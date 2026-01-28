@@ -48,6 +48,12 @@ const AUDIO_PLAYBACK_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36"
 };
 
+/**
+ * 汽水 VIP 播放接口配置
+ */
+const QISHUI_VIP_API_BASE = "http://api.vsaa.cn/api/music.qishui.vip";
+const QISHUI_VIP_PROXY_SERVER = "https://proxy.qishui.vsaa.cn/qishui/proxy";
+
 // ============================================
 // 工具函数
 // ============================================
@@ -64,12 +70,12 @@ function buildDouyinImageUrl(uri, templatePrefix, size = '960:960') {
 }
 
 /**
- * 获取 VIP 标签
+ * 获取 VIP 标记
  * @param {boolean} isVipOnly - 是否仅限 VIP
- * @returns {string} VIP 标签文本（如果需要）
+ * @returns {number} VIP 付费标记（1=VIP，0=免费）
  */
-function getVipLabel(isVipOnly) {
-  return isVipOnly === true ? " 【VIP】" : "";
+function getVipFee(isVipOnly) {
+  return isVipOnly === true ? 1 : 0;
 }
 
 // ============================================
@@ -86,7 +92,7 @@ function getVipLabel(isVipOnly) {
  * // Returns: { id, title, artist, artwork, qualities }
  */
 function parseSearchResultItem(searchItem) {
-  const vipLabel = getVipLabel(searchItem?.["qishui_label_info"]?.["only_vip_playable"]);
+  const vipFee = getVipFee(searchItem?.["qishui_label_info"]?.["only_vip_playable"]);
 
   // 提供基础音质支持（汽水音乐暂无详细音质信息API）
   const qualities = {
@@ -105,11 +111,12 @@ function parseSearchResultItem(searchItem) {
 
   return {
     "id": searchItem.item_id,
-    "title": searchItem.title + vipLabel,
+    "title": searchItem.title,
     "artist": searchItem.author_info.name,
     "singerList": singerList,
     "artwork": searchItem.cover_url,
-    "qualities": qualities
+    "qualities": qualities,
+    "fee": vipFee
   };
 }
 
@@ -124,7 +131,7 @@ function parseSearchResultItem(searchItem) {
  */
 function parseRankTrackItem(rankItem) {
   const track = rankItem.track;
-  const vipLabel = getVipLabel(track?.["label_info"]?.["only_vip_playable"]);
+  const vipFee = getVipFee(track?.["label_info"]?.["only_vip_playable"]);
   const coverUri = track.album.url_cover.uri;
   const coverTemplate = track.album.url_cover.template_prefix;
 
@@ -144,14 +151,15 @@ function parseRankTrackItem(rankItem) {
 
   return {
     "id": track.id,
-    "title": track.name + vipLabel,
+    "title": track.name,
     "artist": track.artists[0].name,
     "artistId": track.artists[0].id,
     "singerList": singerList,
     "album": track.album.name,
     "albumId": track.album.id,
     "artwork": buildDouyinImageUrl(coverUri, coverTemplate),
-    "qualities": qualities
+    "qualities": qualities,
+    "fee": vipFee
   };
 }
 
@@ -165,7 +173,7 @@ function parseRankTrackItem(rankItem) {
  * // Returns: { id, title, artist, artistId, album, albumId, artwork, qualities }
  */
 function parseTrackItem(track) {
-  const vipLabel = getVipLabel(track?.["label_info"]?.["only_vip_playable"]);
+  const vipFee = getVipFee(track?.["label_info"]?.["only_vip_playable"]);
   const coverUri = track.album.url_cover.uri;
   const coverTemplate = track.album.url_cover.template_prefix;
 
@@ -185,14 +193,15 @@ function parseTrackItem(track) {
 
   return {
     "id": track.id,
-    "title": track.name + vipLabel,
+    "title": track.name,
     "artist": track.artists[0].name,
     "artistId": track.artists[0].id,
     "singerList": singerList,
     "album": track.album.name,
     "albumId": track.album.id,
     "artwork": buildDouyinImageUrl(coverUri, coverTemplate),
-    "qualities": qualities
+    "qualities": qualities,
+    "fee": vipFee
   };
 }
 
@@ -207,7 +216,7 @@ function parseTrackItem(track) {
  */
 function parsePlaylistMediaResource(mediaResource) {
   const track = mediaResource.entity.track_wrapper.track;
-  const vipLabel = getVipLabel(track?.["label_info"]?.["only_vip_playable"]);
+  const vipFee = getVipFee(track?.["label_info"]?.["only_vip_playable"]);
   const coverUri = track.album.url_cover.uri;
   const coverTemplate = track.album.url_cover.template_prefix;
 
@@ -220,13 +229,14 @@ function parsePlaylistMediaResource(mediaResource) {
 
   return {
     "id": track.id,
-    "title": track.name + vipLabel,
+    "title": track.name,
     "artist": track.artists[0].name,
     "artistId": track.artists[0].id,
     "album": track.album.name,
     "albumId": track.album.id,
     "artwork": buildDouyinImageUrl(coverUri, coverTemplate),
-    "qualities": qualities
+    "qualities": qualities,
+    "fee": vipFee
   };
 }
 
@@ -241,18 +251,19 @@ function parsePlaylistMediaResource(mediaResource) {
  */
 function parseRecommendPlaylistBlock(playlistBlock) {
   const playlist = playlistBlock.resources[0].entity.playlist;
-  const vipLabel = getVipLabel(playlist?.["label_info"]?.["only_vip_playable"]);
+  const vipFee = getVipFee(playlist?.["label_info"]?.["only_vip_playable"]);
   const coverUri = playlist.url_cover.uri;
   const coverTemplate = playlist.url_cover.template_prefix;
 
   return {
     "id": playlist.id,
-    "title": playlist.title + vipLabel,
+    "title": playlist.title,
     "artist": playlist.owner.nickname,
     "createUserId": playlist.owner.id,
     "description": playlist.desc,
     "artwork": buildDouyinImageUrl(coverUri, coverTemplate),
-    "createTime": playlist.create_time
+    "createTime": playlist.create_time,
+    "fee": vipFee
   };
 }
 
@@ -373,6 +384,7 @@ async function getMusicInfo(musicBase) {
       albumId: musicBase.albumId,
       artwork: musicBase.artwork,
       qualities: musicBase.qualities,
+      fee: musicBase.fee,
       platform: '汽水音乐',
     };
   }
@@ -402,7 +414,7 @@ async function getMusicInfo(musicBase) {
     }
 
     const item = apiData.data.list[0];
-    const vipLabel = getVipLabel(item?.["qishui_label_info"]?.["only_vip_playable"]);
+    const vipFee = getVipFee(item?.["qishui_label_info"]?.["only_vip_playable"]);
 
     // 构建音质信息
     const qualities = {
@@ -421,12 +433,13 @@ async function getMusicInfo(musicBase) {
 
     return {
       id: songId,
-      title: (item.title || '') + vipLabel,
+      title: (item.title || ''),
       artist: item.author_info?.name || '',
       album: item.album_info?.name || '',
       artwork: item.cover_url,
       duration: item.duration ? Math.floor(item.duration / 1000) : undefined,
       qualities: qualities,
+      fee: vipFee,
       platform: '汽水音乐',
       singerList,
     };
@@ -437,55 +450,67 @@ async function getMusicInfo(musicBase) {
 }
 
 /**
- * 获取音乐播放源
+ * 获取音乐播放源（VIP 接口）
  * @async
  * @param {Object} musicItem - 音乐对象
  * @param {string} musicItem.id - 音乐 ID
  * @param {string} quality - 音质（如 "128k", "320k", "flac" 等）
  * @returns {Promise<Object>} 播放源信息
- * @returns {string} return.url - 播放 URL
- * @returns {Object} return.headers - 播放请求头
- *
- * @description
- * 通过抖音 SEO 接口解析音乐播放地址
- * 1. 检查音质支持
- * 2. 获取 track 页面元数据
- * 3. 解析播放信息 URL
- * 4. 提取最高质量音频链接
- * 5. 将 MP4 格式转换为 MP3
- *
- * @example
- * const source = await getMusicPlaybackSource({ id: "123456" }, "320k");
- * // Returns: { url: "...", headers: {...} }
  */
-async function getMusicPlaybackSource(musicItem, quality) {
+async function getMusicPlaybackSource(musicItem, quality = "128k") {
+  if (!musicItem?.id) return null;
+
   try {
-    // 检查音质信息
-    if (musicItem.qualities && Object.keys(musicItem.qualities).length > 0) {
-      // 如果歌曲不支持请求的音质，返回错误
-      if (!musicItem.qualities[quality]) {
-        console.error(`[汽水音乐] 歌曲不支持音质 ${quality}`);
-        throw new Error(`该歌曲不支持 ${quality} 音质`);
-      }
+    const qualityToLevel = {
+      "128k": "standard",
+      "320k": "high",
+      "flac": "lossless",
+    };
+    const level = qualityToLevel[quality] || "standard";
+
+    // 1. 获取原始音源信息
+    const response = await axios.default.get(QISHUI_VIP_API_BASE, {
+      params: { act: "song", id: musicItem.id, level },
+      timeout: 15000
+    });
+
+    const song = response?.data?.data?.[0];
+    if (!song?.url) return null;
+
+    // 2. 无需解密：直接返回
+    if (!song.ekey) {
+      return { url: song.url };
     }
 
-    // 获取 SEO 数据
-    const seoUrl = `https://beta-luna.douyin.com/luna/h5/seo_track?track_id=${musicItem.id}&device_platform=web`;
-    const seoResponse = await axios.default.get(seoUrl);
-    const seoData = seoResponse.data;
+    // 3. 需要解密：调用代理服务
+    try {
+      const proxyRes = await axios.default.post(
+        QISHUI_VIP_PROXY_SERVER,
+        {
+          url: song.url,
+          key: song.ekey,
+          filename: song.name,
+          ext: "aac"
+        },
+        {
+          timeout: 60000,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
 
-    // 获取播放信息
-    const playInfoResponse = await axios.default.get(seoData.track_player.url_player_info);
-    const playInfoData = playInfoResponse.data;
-    const playInfoList = playInfoData.Result.Data.PlayInfoList;
-
-    // 选择最高质量的播放源（列表最后一项）
-    const highestQualityInfo = playInfoList[playInfoList.length - 1];
-    const playUrl = highestQualityInfo.MainPlayUrl;
+      if (proxyRes.data?.code === 200 && proxyRes.data?.url) {
+        return { url: proxyRes.data.url };
+      } else {
+        console.warn("[汽水音乐] 代理服务返回错误:", proxyRes.data?.msg || "未知错误");
+      }
+    } catch (err) {
+      console.warn("[汽水音乐] 代理请求失败，回退到原始地址:", err.message);
+    }
 
     return {
-      url: playUrl.replace("audio_mp4", "audio_mp3"),
-      headers: AUDIO_PLAYBACK_HEADERS
+      needDecrypt: true,
+      decryptKey: song.ekey,
+      _note: "需本地解密，请确保代理服务运行"
     };
   } catch (error) {
     console.error(`[汽水音乐] 获取播放源错误: ${error.message}`);
@@ -839,8 +864,8 @@ async function getMusicPlaylistInfo(playlist) {
 
 module.exports = {
   "platform": "汽水音乐",
-  "version": "0.2.2",
-  "author": "Toskysun",
+  "version": "0.2.3",
+  "author": "Toskysun&简云",
   "appVersion": ">0.1.0-alpha.0",
   "srcUrl": "https://musicfree-plugins.netlify.app/plugins/qishui.js",
   "cacheControl": "no-cache",
