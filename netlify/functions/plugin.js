@@ -9,8 +9,8 @@ const path = require('path');
 
 // 音源映射表
 const SOURCE_MAP = {
-  'ikun': 'https://api.ikunshare.com',
-  'ikun-backup': 'http://music.ikun0014.top',
+  'ikun': 'http://c.wwwweb.top',
+  'ikun-backup': 'https://api.ikunshare.com',
   'xinlan': 'https://source.shiqianjiang.cn/api/music',
   'lingchuan': 'https://lc.guoyue2010.top/api/music'
 };

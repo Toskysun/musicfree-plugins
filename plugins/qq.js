@@ -9,8 +9,6 @@ const CryptoJs = require("crypto-js");
 const he = require("he");
 const pageSize = 20;
 
-let QQ_MUSIC_CDN_URL = "http://ws.stream.qqmusic.qq.com/";
-
 // 统一的音质解析函数
 function parseQualities(file) {
   if (!file) return {};
@@ -671,99 +669,6 @@ const qualityLevels = {
   "master": "master",
 };
 
-const raceToSuccess = (promises) => {
-  return new Promise((resolve, reject) => {
-    let failureCount = 0;
-    promises.forEach((p) => {
-      p.then(resolve).catch(() => {
-        failureCount++;
-        if (failureCount === promises.length) reject(new Error("所有节点测速失败"));
-      });
-    });
-  });
-};
-
-async function getQQCdnUrl() {
-  try {
-    const res = await axios_1.default.post(
-      'https://u6.y.qq.com/cgi-bin/musicu.fcg?cgiKey=GetCdnDispatch',
-      {
-        "comm": {
-          "ct": "11",
-          "cv": "20000008",
-          "v": "20000008",
-          "tmeAppID": "qqmusic"
-        },
-        "req": {
-          "module": "music.audioCdnDispatch.cdnDispatch",
-          "method": "GetCdnDispatch",
-          "param": {
-            "guid": "ffffffff9cab30420000019b8db3f7bf",
-            "uid": "0",
-            "use_new_domain": 1,
-            "use_ipv6": 1
-          }
-        }
-      },
-      {
-        headers: {
-          'User-Agent': 'QQMusic 20000008(android 12)',
-          'Connection': 'Keep-Alive',
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const data = res.data;
-    const apiData = data["music.audioCdnDispatch.cdnDispatch.GetCdnDispatch"]?.data || data.req?.data || data.data;
-    const defaultCdn = "http://ws.stream.qqmusic.qq.com/";
-
-    if (!apiData || !apiData.sip || apiData.sip.length === 0) {
-      return defaultCdn;
-    }
-
-    const allIpv6Nodes = apiData.sip.filter(url => url && url.includes('['));
-
-    if (allIpv6Nodes.length === 0) {
-      const httpsNodes = apiData.sip.filter(url => url.startsWith('https'));
-      return httpsNodes.length > 0 ? httpsNodes[Math.floor(Math.random() * httpsNodes.length)] : defaultCdn;
-    }
-
-    const checkCount = 3;
-    const candidates = allIpv6Nodes.sort(() => Math.random() - 0.5).slice(0, checkCount);
-
-    const pingNode = (url) => {
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject('timeout'), 1500);
-
-        axios_1.default.head(url, { timeout: 1500, maxRedirects: 0 })
-          .then(resp => {
-            clearTimeout(timeout);
-            if (resp.status && resp.status < 500) {
-              resolve(url);
-            } else {
-              reject('connect error');
-            }
-          })
-          .catch(err => {
-            clearTimeout(timeout);
-            reject(err);
-          });
-      });
-    };
-
-    try {
-      return await raceToSuccess(candidates.map(url => pingNode(url)));
-    } catch (e) {
-      const httpsNodes = apiData.sip.filter(url => url.startsWith('https'));
-      return httpsNodes.length > 0 ? httpsNodes[Math.floor(Math.random() * httpsNodes.length)] : defaultCdn;
-    }
-  } catch (e) {
-    console.error('[QQ音乐] 获取CDN地址失败:', e.message);
-    return "http://ws.stream.qqmusic.qq.com/";
-  }
-}
-
 async function getMediaSource(musicItem, quality) {
   try {
     // 检查音质信息
@@ -794,12 +699,6 @@ async function getMediaSource(musicItem, quality) {
     ).data;
     
     if (res.code === 200 && res.url) {
-      // 处理clientcdn情况，需要拼接CDN地址
-      if (res.clientcdn) {
-        return {
-          url: QQ_MUSIC_CDN_URL + res.url
-        };
-      }
       return {
         url: res.url
       };
@@ -1056,17 +955,10 @@ async function getMusicComments(musicItem, page = 1) {
   }
 }
 
-// 预加载CDN地址
-getQQCdnUrl().then((value) => {
-  QQ_MUSIC_CDN_URL = value;
-}).catch(err => {
-  console.error('[QQ音乐] 预加载CDN失败:', err.message);
-});
-
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.2.8",
+  version: "0.2.9",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表
