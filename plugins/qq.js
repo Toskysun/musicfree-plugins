@@ -406,6 +406,23 @@ async function getArtistWorks(artistItem, page, type) {
     return getArtistAlbums(artistItem, page);
   }
 }
+// Normalize non-standard LRC timestamps like [mm:ss:cc] -> [mm:ss.ccc]
+// Example: [00:13:71] => [00:13.710]
+function normalizeColonTimeTag(lrcContent) {
+  if (!lrcContent) return lrcContent;
+
+  const timeTagPattern = /\[(\d+):([0-5]?\d):(\d{1,3})\]/g;
+  if (!timeTagPattern.test(lrcContent)) return lrcContent;
+
+  return lrcContent.replace(timeTagPattern, (_, min, sec, frac) => {
+    let ms = frac;
+    if (ms.length === 1) ms = `${ms}00`;
+    else if (ms.length === 2) ms = `${ms}0`;
+    else if (ms.length > 3) ms = ms.slice(0, 3);
+    return `[${min}:${sec}.${ms}]`;
+  });
+}
+
 async function getLyric(musicItem) {
   try {
     // 使用正确的 API（支持罗马音）
@@ -485,10 +502,10 @@ async function getLyricLegacy(musicItem) {
     );
   }
   return {
-    rawLrc: he.decode(
+    rawLrc: normalizeColonTimeTag(he.decode(
       CryptoJs.enc.Base64.parse(res.lyric).toString(CryptoJs.enc.Utf8)
-    ),
-    translation,
+    )),
+    translation: normalizeColonTimeTag(translation),
   };
 }
 async function importMusicSheet(urlLike) {
@@ -958,7 +975,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.2.9",
+  version: "0.3.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表

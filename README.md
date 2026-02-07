@@ -22,13 +22,13 @@
 
 | 平台 | 文件 | 版本 | API Key | 状态 |
 |------|------|------|---------|------|
-| 网易云音乐 | [wy.js](./plugins/wy.js) | 0.2.0 | ✅ 需要 | ✅ |
-| 咪咕音乐 | [mg.js](./plugins/mg.js) | 0.2.0 | ✅ 需要 | ✅ |
-| 酷狗音乐 | [kg.js](./plugins/kg.js) | 0.2.0 | ✅ 需要 | ✅ |
-| 酷我音乐 | [kw.js](./plugins/kw.js) | 0.2.0 | ✅ 需要 | ✅ |
-| QQ音乐 | [qq.js](./plugins/qq.js) | 0.2.0 | ✅ 需要 | ✅ |
-| Bilibili | [bilibili.js](./plugins/bilibili.js) | 0.2.3 | ❌ 无需 | ✅ |
-| 汽水音乐 | [qishui.js](./plugins/qishui.js) | 0.2.0 | ❌ 无需 | ✅ |
+| 网易云音乐 | [wy.js](./plugins/wy.js) | 0.2.8 | ✅ 需要 | ✅ |
+| 咪咕音乐 | [mg.js](./plugins/mg.js) | 0.2.7 | ✅ 需要 | ✅ |
+| 酷狗音乐 | [kg.js](./plugins/kg.js) | 0.2.7 | ✅ 需要 | ✅ |
+| 酷我音乐 | [kw.js](./plugins/kw.js) | 0.2.6 | ✅ 需要 | ✅ |
+| QQ音乐 | [qq.js](./plugins/qq.js) | 0.3.0 | ✅ 需要 | ✅ |
+| Bilibili | [bilibili.js](./plugins/bilibili.js) | 0.2.7 | ❌ 无需 | ✅ |
+| 汽水音乐 | [qishui.js](./plugins/qishui.js) | 0.2.3 | ❌ 无需 | ✅ |
 | Gitcode | [git.js](./plugins/git.js) | 0.2.0 | ❌ 无需 | ✅ |
 
 > **注意**：标记为"❌ 无需"的插件可以直接导入使用，无需配置 API Key。
