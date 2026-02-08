@@ -22,11 +22,11 @@
 
 | 平台 | 文件 | 版本 | API Key | 状态 |
 |------|------|------|---------|------|
-| 网易云音乐 | [wy.js](./plugins/wy.js) | 0.2.8 | ✅ 需要 | ✅ |
-| 咪咕音乐 | [mg.js](./plugins/mg.js) | 0.2.7 | ✅ 需要 | ✅ |
-| 酷狗音乐 | [kg.js](./plugins/kg.js) | 0.2.7 | ✅ 需要 | ✅ |
-| 酷我音乐 | [kw.js](./plugins/kw.js) | 0.2.6 | ✅ 需要 | ✅ |
-| QQ音乐 | [qq.js](./plugins/qq.js) | 0.3.0 | ✅ 需要 | ✅ |
+| 网易云音乐 | [wy.js](./plugins/wy.js) | 0.2.9 | ✅ 需要 | ✅ |
+| 咪咕音乐 | [mg.js](./plugins/mg.js) | 0.2.8 | ✅ 需要 | ✅ |
+| 酷狗音乐 | [kg.js](./plugins/kg.js) | 0.2.8 | ✅ 需要 | ✅ |
+| 酷我音乐 | [kw.js](./plugins/kw.js) | 0.2.7 | ✅ 需要 | ✅ |
+| QQ音乐 | [qq.js](./plugins/qq.js) | 0.3.1 | ✅ 需要 | ✅ |
 | Bilibili | [bilibili.js](./plugins/bilibili.js) | 0.2.7 | ❌ 无需 | ✅ |
 | 汽水音乐 | [qishui.js](./plugins/qishui.js) | 0.2.3 | ❌ 无需 | ✅ |
 | Gitcode | [git.js](./plugins/git.js) | 0.2.0 | ❌ 无需 | ✅ |
@@ -48,7 +48,7 @@
 
 订阅链接格式：
 ```
-https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY.json
+https://musicfree-plugins.netlify.app/api/subscription.json?source=ikun&key=YOUR_API_KEY.json
 ```
 
 > **注意**：订阅链接的 key 参数后需要添加 `.json` 后缀，这是 MusicFree 的要求。
@@ -73,7 +73,7 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY.jso
 4. 选择 **从网络安装**
 5. 输入单个插件链接，例如：
    ```
-   https://musicfree-plugins.netlify.app/plugins/wy.js?key=YOUR_API_KEY
+   https://musicfree-plugins.netlify.app/plugins/wy.js?source=ikun&key=YOUR_API_KEY
    ```
 
 ## 📱 完整示例
@@ -82,13 +82,13 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY.jso
 
 **订阅链接**（MusicFree 要求 key 后加 .json）:
 ```
-https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY_HERE.json
+https://musicfree-plugins.netlify.app/api/subscription.json?source=ikun&key=YOUR_API_KEY_HERE.json
 ```
 
 **单个插件链接示例**:
 - 网易云音乐（需要 Key）:
   ```
-  https://musicfree-plugins.netlify.app/plugins/wy.js?key=YOUR_API_KEY_HERE
+  https://musicfree-plugins.netlify.app/plugins/wy.js?source=ikun&key=YOUR_API_KEY_HERE
   ```
 - Bilibili（无需 Key）:
   ```
@@ -102,8 +102,11 @@ https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY_HER
 ### 插件订阅接口
 
 ```
-GET /api/subscription.json?key=YOUR_API_KEY.json
+GET /api/subscription.json?source=ikun&key=YOUR_API_KEY.json
 ```
+
+> **音源参数说明**：`source` 支持 `ikun` / `xinlan` / `lingchuan`；`ikun` 使用 `POST /music/url`，其余使用 `GET /url`。
+> - `bilibili.js` / `qishui.js` / `git.js` 无需 `source` 参数。
 
 返回所有可用插件列表的 JSON 格式数据。
 
@@ -112,8 +115,8 @@ GET /api/subscription.json?key=YOUR_API_KEY.json
 ### 单个插件下载接口
 
 ```
-GET /plugins/{platform}.js?key=YOUR_API_KEY  (需要 API Key 的插件)
-GET /plugins/{platform}.js                    (无需 API Key 的插件)
+GET /plugins/{platform}.js?source=ikun&key=YOUR_API_KEY  (需要 API Key 的插件)
+GET /plugins/{platform}.js                    (无需 API Key 的插件，bilibili/qishui/git)
 ```
 
 支持的平台:
@@ -207,10 +210,10 @@ netlify dev
 
 ```bash
 # 测试订阅接口（注意 key 后面的 .json）
-curl "http://localhost:8888/api/subscription.json?key=test123.json"
+curl "http://localhost:8888/api/subscription.json?source=ikun&key=test123.json"
 
 # 测试插件下载（插件链接不需要 .json）
-curl "http://localhost:8888/plugins/wy.js?key=test123"
+curl "http://localhost:8888/plugins/wy.js?source=ikun&key=test123"
 ```
 
 ## 🤝 贡献

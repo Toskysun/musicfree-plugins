@@ -142,7 +142,7 @@ exports.handler = async (event, context) => {
 
   try {
     // 从查询参数获取音源类型（source 参数在前）
-    let source = event.queryStringParameters?.source || 'ikun-backup';
+    let source = event.queryStringParameters?.source || 'ikun';
 
     // 移除 source 末尾的 .json 后缀（如果存在）
     if (source.endsWith('.json')) {
@@ -178,11 +178,14 @@ exports.handler = async (event, context) => {
     // 需要 API KEY 的插件：source + key（如果有）
     // 不需要 API KEY 的插件：仅 source
     const pluginsList = plugins.map(plugin => {
-      let url = `${baseUrl}/plugins/${plugin.file}?source=${source}`;
+      let url = `${baseUrl}/plugins/${plugin.file}`;
 
-      // 如果插件需要 key 且提供了 key，则添加 key 参数
-      if (plugin.requiresKey && key) {
-        url += `&key=${key}`;
+      // only key-required plugins carry source and key
+      if (plugin.requiresKey) {
+        url += `?source=${source}`;
+        if (key) {
+          url += `&key=${key}`;
+        }
       }
 
       return {

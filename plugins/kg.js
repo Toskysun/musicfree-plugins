@@ -2,6 +2,53 @@ const API_URL = "{{API_URL}}";
 const API_KEY = "{{API_KEY}}";
 const UPDATE_URL = "{{UPDATE_URL}}";
 
+function isIkunSource(updateUrl) {
+  try {
+    const url = new URL(updateUrl);
+    return url.searchParams.get("source") === "ikun";
+  } catch (error) {
+    const match = updateUrl.match(/[?&]source=([^&]+)/);
+    return match ? decodeURIComponent(match[1]) === "ikun" : false;
+  }
+}
+
+const IS_IKUN_SOURCE = isIkunSource(UPDATE_URL);
+async function requestMusicUrl(source, songId, quality) {
+  const headers = {
+    "X-API-Key": API_KEY,
+    "User-Agent": "lx-music-mobile/2.0.0",
+    "Content-Type": "application/json",
+    "Accept": "application/json"
+  };
+
+  if (IS_IKUN_SOURCE) {
+    return (
+      await axios_1.default.post(
+        `${API_URL}/music/url`,
+        {
+          source,
+          musicId: songId,
+          quality,
+        },
+        {
+          headers,
+          timeout: 10000,
+        }
+      )
+    ).data;
+  }
+
+  return (
+    await axios_1.default.get(
+      `${API_URL}/url?source=${source}&songId=${songId}&quality=${quality}`,
+      {
+        headers,
+        timeout: 10000,
+      }
+    )
+  ).data;
+}
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = require("axios");
@@ -591,20 +638,7 @@ async function getMediaSource(musicItem, quality) {
     // 优先使用flac的hash，如果没有则使用歌曲id
     let songId = musicItem.sqhash || musicItem.id;
 
-    const res = (
-      await axios_1.default.get(
-        `${API_URL}/url?source=kg&songId=${songId}&quality=${qualityLevels[quality]}`,
-        {
-          "headers": {
-            "{{AUTH_HEADER}}": API_KEY,
-            "User-Agent": "lx-music-mobile/2.0.0",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          "timeout": 10000
-        }
-      )
-    ).data;
+    const res = await requestMusicUrl('kg', songId, qualityLevels[quality]);
 
     if (res.code === 200 && res.url) {
       return {
@@ -1991,7 +2025,7 @@ async function getMusicComments(musicItem, page = 1) {
 }
 module.exports = {
   platform: "酷狗音乐",
-  version: "0.2.7",
+  version: "0.2.8",
   author: "Toskysun",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,

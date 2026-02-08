@@ -619,11 +619,6 @@
                         <div class="source-name">ikun音源</div>
                         <div class="source-url">c.wwwweb.top</div>
                     </div>
-                    <div class="source-card" data-source="ikun-backup" data-url="https://api.ikunshare.com">
-                        <div class="source-icon">🔄</div>
-                        <div class="source-name">ikun备用</div>
-                        <div class="source-url">api.ikunshare.com</div>
-                    </div>
                     <div class="source-card" data-source="xinlan" data-url="https://source.shiqianjiang.cn/api/music">
                         <div class="source-icon">🌊</div>
                         <div class="source-name">新澜音源</div>
@@ -691,7 +686,7 @@
             <ul class="steps">
                 <li>
                     <strong>选择音源类型</strong><br>
-                    从4个音源选项中选择一个您想使用的音源（ikun音源、ikun备用、新澜音源、聆川音源）
+                    从3个音源选项中选择一个您想使用的音源（ikun音源、新澜音源、聆川音源）
                 </li>
                 <li>
                     <strong>输入卡密</strong><br>
@@ -725,14 +720,21 @@
                     <span>📋</span>
                     <span>插件订阅接口</span>
                 </div>
-                <div class="link-box">GET https://musicfree-plugins.netlify.app/api/subscription.json?key=YOUR_API_KEY.json</div>
+                <div class="link-box">GET https://musicfree-plugins.netlify.app/api/subscription.json?source=ikun&key=YOUR_API_KEY.json</div>
             </div>
             <div class="link-item" style="margin-top: 20px;">
                 <div class="link-title">
                     <span>📦</span>
                     <span>单个插件下载接口</span>
                 </div>
-                <div class="link-box">GET https://musicfree-plugins.netlify.app/plugins/{platform}.js?key=YOUR_API_KEY</div>
+                <div class="link-box">GET https://musicfree-plugins.netlify.app/plugins/{platform}.js?source=ikun&key=YOUR_API_KEY (key-required plugins)</div>
+            </div>
+            <div class="link-item" style="margin-top: 20px;">
+                <div class="link-title">
+                    <span>??</span>
+                    <span>Plugin Download (No Source)</span>
+                </div>
+                <div class="link-box">GET https://musicfree-plugins.netlify.app/plugins/{platform}.js</div>
             </div>
         </div>
 
@@ -764,11 +766,11 @@
         // requiresKey: true - 需要 API KEY 的插件（原始5个）
         // requiresKey: false - 不需要 API KEY 的插件（新增3个）
         const PLUGINS = [
-            { name: '网易云音乐', file: 'wy.js', version: '0.2.8', icon: '☁️', requiresKey: true },
-            { name: 'QQ音乐', file: 'qq.js', version: '0.3.0', icon: '🐧', requiresKey: true },
-            { name: '酷狗音乐', file: 'kg.js', version: '0.2.7', icon: '🐶', requiresKey: true },
-            { name: '酷我音乐', file: 'kw.js', version: '0.2.6', icon: '🎵', requiresKey: true },
-            { name: '咪咕音乐', file: 'mg.js', version: '0.2.7', icon: '🎤', requiresKey: true },
+            { name: '网易云音乐', file: 'wy.js', version: '0.2.9', icon: '☁️', requiresKey: true },
+            { name: 'QQ音乐', file: 'qq.js', version: '0.3.1', icon: '🐧', requiresKey: true },
+            { name: '酷狗音乐', file: 'kg.js', version: '0.2.8', icon: '🐶', requiresKey: true },
+            { name: '酷我音乐', file: 'kw.js', version: '0.2.7', icon: '🎵', requiresKey: true },
+            { name: '咪咕音乐', file: 'mg.js', version: '0.2.8', icon: '🎤', requiresKey: true },
             { name: 'Bilibili', file: 'bilibili.js', version: '0.2.7', icon: '📺', requiresKey: false },
             { name: '汽水音乐', file: 'qishui.js', version: '0.2.3', icon: '🥤', requiresKey: false },
             { name: 'Gitcode', file: 'git.js', version: '0.2.0', icon: '🔧', requiresKey: false }
@@ -829,7 +831,7 @@
             if (apiKey) {
                 subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}&key=${apiKey}.json`;
             } else {
-                subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}.json`;
+                subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}`;
             }
             document.getElementById('subscriptionUrl').textContent = subscriptionUrl;
 
@@ -850,12 +852,15 @@
 
             PLUGINS.forEach(plugin => {
                 // 生成插件URL
-                // 参数顺序：source 在前，key 在后
-                let pluginUrl = `${baseUrl}/plugins/${plugin.file}?source=${selectedSource.source}`;
+                // Build plugin URL
+                let pluginUrl = `${baseUrl}/plugins/${plugin.file}`;
 
-                // 如果插件需要 key 且提供了 key，则添加 key 参数
-                if (plugin.requiresKey && apiKey) {
-                    pluginUrl += `&key=${apiKey}`;
+                // Only key-required plugins include source and key
+                if (plugin.requiresKey) {
+                    pluginUrl += `?source=${selectedSource.source}`;
+                    if (apiKey) {
+                        pluginUrl += `&key=${apiKey}`;
+                    }
                 }
 
                 const keyBadgeContent = plugin.requiresKey
