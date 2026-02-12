@@ -1,475 +1,457 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - 页面未找到 | MusicFree Plugin API</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>404 - MusicFree</title>
     <style>
-        * {
+        /* Reset */
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        /* Design Tokens */
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --card-bg: rgba(255, 255, 255, 0.1);
-            --card-hover-bg: rgba(255, 255, 255, 0.15);
-            --text-color: #ffffff;
-            --input-bg: rgba(0, 0, 0, 0.2);
-            --code-bg: rgba(0, 0, 0, 0.3);
-            --warning-color: #FF9800;
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, 'Cascadia Code', monospace;
+
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+            --space-12: 48px;
+            --space-16: 64px;
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            --ease-default: cubic-bezier(0.25, 0.1, 0.25, 1);
+            --duration-fast: 200ms;
+            --duration-normal: 300ms;
+
+            /* Light Mode */
+            --color-bg: #F5F5F7;
+            --color-surface: #FFFFFF;
+            --color-surface-secondary: #F2F2F7;
+            --color-text-primary: #1D1D1F;
+            --color-text-secondary: #6E6E73;
+            --color-text-tertiary: #86868B;
+            --color-accent: #0071E3;
+            --color-accent-hover: #0077ED;
+            --color-accent-subtle: rgba(0, 113, 227, 0.08);
+            --color-green: #34C759;
+            --color-green-subtle: rgba(52, 199, 89, 0.12);
+            --color-separator: rgba(0, 0, 0, 0.06);
+            --color-border: rgba(0, 0, 0, 0.08);
+            --color-shadow: rgba(0, 0, 0, 0.04);
+            --color-code-bg: #F2F2F7;
         }
 
-        body.dark-theme {
-            --primary-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            --card-bg: rgba(255, 255, 255, 0.05);
-            --card-hover-bg: rgba(255, 255, 255, 0.08);
-            --input-bg: rgba(255, 255, 255, 0.1);
-            --code-bg: rgba(0, 0, 0, 0.4);
+        [data-theme="dark"] {
+            --color-bg: #000000;
+            --color-surface: #1C1C1E;
+            --color-surface-secondary: #2C2C2E;
+            --color-text-primary: #F5F5F7;
+            --color-text-secondary: #98989D;
+            --color-text-tertiary: #6E6E73;
+            --color-accent: #2997FF;
+            --color-accent-hover: #40A9FF;
+            --color-accent-subtle: rgba(41, 151, 255, 0.12);
+            --color-green: #30D158;
+            --color-green-subtle: rgba(48, 209, 88, 0.16);
+            --color-separator: rgba(255, 255, 255, 0.08);
+            --color-border: rgba(255, 255, 255, 0.1);
+            --color-shadow: rgba(0, 0, 0, 0.2);
+            --color-code-bg: #2C2C2E;
         }
 
-        body.light-theme {
-            --primary-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            --card-bg: rgba(255, 255, 255, 0.7);
-            --card-hover-bg: rgba(255, 255, 255, 0.85);
-            --text-color: #2c3e50;
-            --input-bg: rgba(255, 255, 255, 0.9);
-            --code-bg: rgba(0, 0, 0, 0.05);
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        /* Base */
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: var(--primary-gradient);
+            font-family: var(--font-system);
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: var(--text-color);
-            padding: 20px;
-            transition: all 0.3s ease;
-            overflow: hidden;
+            padding: var(--space-6);
+            transition: background-color var(--duration-normal) var(--ease-default),
+                        color var(--duration-normal) var(--ease-default);
         }
 
-        /* Theme Toggle */
-        .theme-toggle {
+        /* Top Actions */
+        .top-actions {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
+            top: var(--space-5);
+            right: var(--space-5);
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+            z-index: 100;
+        }
+
+        .nav-icon-btn {
+            width: 36px;
+            height: 36px;
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            background: transparent;
+            color: var(--color-text-secondary);
             cursor: pointer;
-            font-size: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
-            box-shadow: var(--shadow);
+            transition: background var(--duration-fast) var(--ease-default),
+                        color var(--duration-fast) var(--ease-default);
+            text-decoration: none;
         }
 
-        .theme-toggle:hover {
-            transform: scale(1.1) rotate(15deg);
-            background: var(--card-hover-bg);
+        .nav-icon-btn:hover {
+            background: var(--color-accent-subtle);
+            color: var(--color-accent);
         }
+
+        .nav-icon-btn:active {
+            transform: scale(0.92);
+        }
+
+        .nav-icon-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .theme-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background var(--duration-fast) var(--ease-default);
+        }
+
+        .theme-btn:hover {
+            background: var(--color-accent-subtle);
+            color: var(--color-accent);
+        }
+
+        .theme-btn:active {
+            transform: scale(0.92);
+        }
+
+        .theme-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .icon-sun, .icon-moon { display: none; }
+        [data-theme="light"] .icon-moon { display: block; }
+        [data-theme="dark"] .icon-sun { display: block; }
 
         /* Container */
         .container {
-            max-width: 800px;
+            max-width: 560px;
             width: 100%;
             text-align: center;
-            animation: fadeInUp 0.8s ease;
+            animation: fadeIn 0.6s var(--ease-default) both;
         }
 
-        /* 404 Number with Animation */
+        /* Error Code */
         .error-code {
-            font-size: clamp(80px, 20vw, 180px);
-            font-weight: 900;
-            margin-bottom: 30px;
-            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
-            background: linear-gradient(90deg, #fff 0%, #f0f0f0 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            position: relative;
-            display: inline-block;
-            animation: float 3s ease-in-out infinite;
+            font-size: clamp(96px, 20vw, 160px);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            color: var(--color-text-tertiary);
+            opacity: 0.3;
+            margin-bottom: var(--space-4);
+            -webkit-user-select: none;
+            user-select: none;
         }
 
-        .error-code::after {
-            content: '404';
-            position: absolute;
-            left: 0;
-            top: 0;
-            z-index: -1;
-            text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(0px);
-            }
-            50% {
-                transform: translateY(-20px);
-            }
-        }
-
-        @keyframes glow {
-            0% {
-                text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-            }
-            100% {
-                text-shadow: 0 0 60px rgba(255, 255, 255, 0.6);
-            }
-        }
-
-        /* Music Notes Decoration */
-        .music-notes {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        .note {
-            position: absolute;
-            font-size: 40px;
-            opacity: 0.15;
-            animation: floatNote 10s ease-in-out infinite;
-        }
-
-        .note:nth-child(1) { left: 10%; animation-delay: 0s; }
-        .note:nth-child(2) { left: 20%; animation-delay: 1s; }
-        .note:nth-child(3) { left: 30%; animation-delay: 2s; }
-        .note:nth-child(4) { left: 40%; animation-delay: 3s; }
-        .note:nth-child(5) { left: 50%; animation-delay: 4s; }
-        .note:nth-child(6) { left: 60%; animation-delay: 5s; }
-        .note:nth-child(7) { left: 70%; animation-delay: 1.5s; }
-        .note:nth-child(8) { left: 80%; animation-delay: 2.5s; }
-        .note:nth-child(9) { left: 90%; animation-delay: 3.5s; }
-
-        @keyframes floatNote {
-            0% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 0.15;
-            }
-            90% {
-                opacity: 0.15;
-            }
-            100% {
-                transform: translateY(-100px) rotate(360deg);
-                opacity: 0;
-            }
-        }
-
-        /* Headings */
-        h1 {
-            font-size: clamp(28px, 5vw, 48px);
-            margin-bottom: 20px;
+        /* Title & Subtitle */
+        .title {
+            font-size: clamp(28px, 5vw, 40px);
             font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: var(--space-3);
         }
 
         .subtitle {
-            font-size: clamp(16px, 3vw, 22px);
-            margin-bottom: 40px;
-            opacity: 0.9;
-            line-height: 1.6;
+            font-size: clamp(15px, 3vw, 19px);
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+            max-width: 420px;
+            margin: 0 auto var(--space-10);
         }
 
         /* Card */
         .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-            background: var(--card-hover-bg);
-        }
-
-        .card h2 {
-            font-size: clamp(20px, 4vw, 26px);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        /* Endpoint Links */
-        .endpoint {
-            margin-bottom: 20px;
+            background: var(--color-surface);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            box-shadow: 0 1px 2px var(--color-shadow),
+                        0 4px 16px var(--color-shadow);
+            border: 0.5px solid var(--color-border);
             text-align: left;
+            margin-bottom: var(--space-8);
+            transition: background var(--duration-normal) var(--ease-default),
+                        border-color var(--duration-normal) var(--ease-default);
         }
 
-        .endpoint-title {
+        .card-title {
+            font-size: 17px;
             font-weight: 600;
-            margin-bottom: 10px;
-            font-size: clamp(15px, 2.5vw, 18px);
+            margin-bottom: var(--space-4);
+            color: var(--color-text-primary);
+        }
+
+        /* API Items */
+        .api-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+
+        .api-item {
+            padding: var(--space-3) var(--space-4);
+            background: var(--color-surface-secondary);
+            border-radius: var(--radius-md);
+        }
+
+        .api-method {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: var(--radius-full);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--color-green-subtle);
+            color: var(--color-green);
+            margin-bottom: var(--space-1);
+        }
+
+        .api-label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: var(--space-1);
+        }
+
+        .api-url {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            word-break: break-all;
+        }
+
+        /* Platforms */
+        .platforms {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: var(--space-2);
+            margin-top: var(--space-4);
+            padding: var(--space-3) var(--space-4);
+            background: var(--color-accent-subtle);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            color: var(--color-accent);
+            flex-wrap: wrap;
         }
 
-        .endpoint-url {
-            background: var(--code-bg);
-            padding: 15px 20px;
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: clamp(12px, 2vw, 14px);
-            word-break: break-all;
-            border-left: 4px solid rgba(102, 126, 234, 0.6);
-            line-height: 1.6;
-            transition: all 0.3s ease;
+        .platforms svg {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            fill: var(--color-accent);
         }
 
-        .endpoint-url:hover {
-            background: var(--input-bg);
-            transform: translateX(5px);
+        .platform-tag {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 12px;
         }
 
         /* Button */
-        .btn {
-            display: inline-block;
-            padding: 15px 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 12px;
-            font-size: clamp(16px, 3vw, 18px);
-            font-weight: 600;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            margin-top: 10px;
-        }
-
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(-1px);
-        }
-
-        /* Emoji Decorations */
-        .emoji-decoration {
-            font-size: clamp(40px, 8vw, 80px);
-            margin: 20px 0;
-            display: inline-block;
-            animation: bounce 2s ease-in-out infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% {
-                transform: translateY(0) scale(1);
-            }
-            50% {
-                transform: translateY(-15px) scale(1.1);
-            }
-        }
-
-        /* Warning Box */
-        .info-box {
-            background: rgba(102, 126, 234, 0.2);
-            border-left: 4px solid #667eea;
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin-top: 30px;
-            display: flex;
+        .btn-home {
+            display: inline-flex;
             align-items: center;
-            gap: 12px;
-            text-align: left;
-            font-size: clamp(14px, 2.5vw, 16px);
+            justify-content: center;
+            gap: var(--space-2);
+            min-height: 48px;
+            padding: 0 var(--space-8);
+            font-family: var(--font-system);
+            font-size: 17px;
+            font-weight: 600;
+            color: #FFFFFF;
+            background: var(--color-accent);
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--duration-fast) var(--ease-default);
         }
 
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .btn-home:hover {
+            background: var(--color-accent-hover);
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .btn-home:active {
+            transform: scale(0.97);
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 10px;
-            }
-
-            .card {
-                padding: 25px;
-            }
-
-            .theme-toggle {
-                width: 45px;
-                height: 45px;
-                font-size: 20px;
-            }
-
-            .error-code {
-                margin-bottom: 20px;
-            }
-
-            .music-notes .note {
-                font-size: 30px;
-            }
+        .btn-home svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
         }
 
         /* Footer */
         .footer {
-            margin-top: 30px;
-            opacity: 0.7;
-            font-size: clamp(12px, 2vw, 14px);
-            animation: fadeIn 1.5s ease;
+            margin-top: var(--space-10);
+            font-size: 13px;
+            color: var(--color-text-tertiary);
+            line-height: 1.6;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .card {
+                padding: var(--space-5);
+                border-radius: var(--radius-lg);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Theme Toggle Button -->
-    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
-        <span id="themeIcon">🌙</span>
-    </button>
-
-    <!-- Floating Music Notes Background -->
-    <div class="music-notes">
-        <div class="note">🎵</div>
-        <div class="note">🎶</div>
-        <div class="note">🎵</div>
-        <div class="note">🎶</div>
-        <div class="note">🎵</div>
-        <div class="note">🎶</div>
-        <div class="note">🎵</div>
-        <div class="note">🎶</div>
-        <div class="note">🎵</div>
+    <!-- Top Actions -->
+    <div class="top-actions">
+        <a href="https://github.com/Toskysun/musicfree-plugins" class="nav-icon-btn" target="_blank" rel="noopener" aria-label="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        </a>
+        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><style>path{stroke:currentColor;stroke-width:2;stroke-linecap:round}</style></svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
     </div>
 
     <div class="container">
         <!-- Error Code -->
-        <div class="error-code">404</div>
+        <div class="error-code" aria-hidden="true">404</div>
 
-        <!-- Heading -->
-        <h1>🎧 页面走丢了</h1>
+        <!-- Title -->
+        <h1 class="title">Page Not Found</h1>
         <p class="subtitle">
-            就像丢失的音符，这个页面不在这里...<br>
-            但别担心，让我们帮你找到正确的方向！
+            The page you're looking for doesn't exist or has been moved. Check the URL or head back to the homepage.
         </p>
 
-        <!-- Emoji Decoration -->
-        <div class="emoji-decoration">🔍</div>
-
-        <!-- API Endpoints Card -->
+        <!-- API Endpoints -->
         <div class="card">
-            <h2>📡 可用的 API 端点</h2>
-
-            <div class="endpoint">
-                <div class="endpoint-title">
-                    <span>📋</span>
-                    <span>插件订阅接口</span>
+            <div class="card-title">Available Endpoints</div>
+            <div class="api-list">
+                <div class="api-item">
+                    <span class="api-method">GET</span>
+                    <div class="api-label">Plugin Subscription</div>
+                    <div class="api-url">/api/subscription.json?source={source}&key={key}</div>
                 </div>
-                <div class="endpoint-url">/api/subscription.json?key=YOUR_API_KEY</div>
-            </div>
-
-            <div class="endpoint">
-                <div class="endpoint-title">
-                    <span>📦</span>
-                    <span>单个插件下载</span>
+                <div class="api-item">
+                    <span class="api-method">GET</span>
+                    <div class="api-label">Plugin Download</div>
+                    <div class="api-url">/plugins/{platform}.js?source={source}&key={key}</div>
                 </div>
-                <div class="endpoint-url">/plugin/{platform}.js?key=YOUR_API_KEY</div>
             </div>
-
-            <div class="info-box">
-                <span style="font-size: 24px;">💡</span>
-                <span>支持的平台: <strong>wy</strong> (网易云), <strong>qq</strong> (QQ音乐), <strong>kg</strong> (酷狗), <strong>kw</strong> (酷我), <strong>mg</strong> (咪咕)</span>
+            <div class="platforms">
+                <svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                <span>Sources:</span>
+                <span class="platform-tag">ikun</span> &middot;
+                <span class="platform-tag">xinlan</span> &middot;
+                <span class="platform-tag">lingchuan</span>
+            </div>
+            <div class="platforms">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                <span>Platforms:</span>
+                <span class="platform-tag">wy</span> &middot;
+                <span class="platform-tag">qq</span> &middot;
+                <span class="platform-tag">kg</span> &middot;
+                <span class="platform-tag">kw</span> &middot;
+                <span class="platform-tag">mg</span> &middot;
+                <span class="platform-tag">bilibili</span> &middot;
+                <span class="platform-tag">qishui</span> &middot;
+                <span class="platform-tag">git</span>
             </div>
         </div>
 
         <!-- Back Button -->
-        <a href="/" class="btn">🏠 返回首页</a>
+        <a href="/" class="btn-home">
+            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span>Back to Home</span>
+        </a>
 
         <!-- Footer -->
         <div class="footer">
             <p>MusicFree Plugin Subscription Service</p>
-            <p>如果您认为这是一个错误，请联系管理员</p>
         </div>
     </div>
 
     <script>
-        // Theme Toggle Function
+        function getPreferredTheme() {
+            const stored = localStorage.getItem('theme');
+            if (stored) return stored;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        }
+
         function toggleTheme() {
-            const body = document.body;
-            const themeIcon = document.getElementById('themeIcon');
-
-            if (body.classList.contains('dark-theme')) {
-                body.classList.remove('dark-theme');
-                body.classList.add('light-theme');
-                themeIcon.textContent = '☀️';
-                localStorage.setItem('theme', 'light');
-            } else if (body.classList.contains('light-theme')) {
-                body.classList.remove('light-theme');
-                themeIcon.textContent = '🌙';
-                localStorage.setItem('theme', 'default');
-            } else {
-                body.classList.add('dark-theme');
-                themeIcon.textContent = '🌈';
-                localStorage.setItem('theme', 'dark');
-            }
+            const current = document.documentElement.getAttribute('data-theme');
+            applyTheme(current === 'dark' ? 'light' : 'dark');
         }
 
-        // Load Theme from LocalStorage
-        function loadTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            const body = document.body;
-            const themeIcon = document.getElementById('themeIcon');
+        applyTheme(getPreferredTheme());
 
-            if (savedTheme === 'dark') {
-                body.classList.add('dark-theme');
-                themeIcon.textContent = '🌈';
-            } else if (savedTheme === 'light') {
-                body.classList.add('light-theme');
-                themeIcon.textContent = '☀️';
-            } else {
-                themeIcon.textContent = '🌙';
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (!localStorage.getItem('theme')) {
+                applyTheme(e.matches ? 'dark' : 'light');
             }
-        }
+        });
 
-        // Initialize Theme on Load
-        loadTheme();
-
-        // Add keyboard shortcut for theme toggle (Ctrl/Cmd + T)
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', e => {
             if ((e.ctrlKey || e.metaKey) && e.key === 't') {
                 e.preventDefault();
                 toggleTheme();
