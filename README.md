@@ -105,7 +105,8 @@ https://musicfree-plugins.netlify.app/api/subscription.json?source=ikun&key=YOUR
 GET /api/subscription.json?source=ikun&key=YOUR_API_KEY.json
 ```
 
-> **音源参数说明**：`source` 支持 `ikun` / `xinlan` / `lingchuan`；`ikun` 使用 `POST /music/url`，其余使用 `GET /url`。
+> **音源参数说明**：`source` 支持 `ikun` / `linglan` / `suyin`；`ikun` 使用 `POST /music/url`，`linglan` 使用 `GET /url`，`suyin` Key 内置 (无需用户提供)。
+> - `suyin` 仅支持 wy / qq / kw / mg (不支持 kg)。
 > - `bilibili.js` / `qishui.js` / `git.js` 无需 `source` 参数。
 
 返回所有可用插件列表的 JSON 格式数据。

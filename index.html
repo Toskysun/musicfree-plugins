@@ -357,7 +357,7 @@
            ============================================ */
         .source-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: var(--space-3);
         }
 
@@ -1061,7 +1061,7 @@
             </div>
             <div class="card">
                 <div class="source-grid" id="sourceGrid">
-                    <div class="source-card" data-source="ikun" data-url="https://c.wwwweb.top" tabindex="0" role="radio" aria-checked="false">
+                    <div class="source-card" data-source="ikun" data-url="https://c.wwwweb.top" data-requires-key="true" tabindex="0" role="radio" aria-checked="false">
                         <div class="source-icon" aria-hidden="true">🎵</div>
                         <div class="source-info">
                             <div class="source-name">ikun 音源</div>
@@ -1071,21 +1071,61 @@
                             <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
                         </div>
                     </div>
-                    <div class="source-card" data-source="xinlan" data-url="https://source.shiqianjiang.cn/api/music" tabindex="0" role="radio" aria-checked="false">
+                    <div class="source-card" data-source="linglan" data-url="https://source.shiqianjiang.cn/api/music" data-requires-key="true" tabindex="0" role="radio" aria-checked="false">
                         <div class="source-icon" aria-hidden="true">🌊</div>
                         <div class="source-info">
-                            <div class="source-name">新澜音源</div>
+                            <div class="source-name">聆澜音源</div>
                             <div class="source-url">shiqianjiang.cn</div>
                         </div>
                         <div class="source-check" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
                         </div>
                     </div>
-                    <div class="source-card" data-source="lingchuan" data-url="https://lc.guoyue2010.top/api/music" tabindex="0" role="radio" aria-checked="false">
-                        <div class="source-icon" aria-hidden="true">🎼</div>
+                    <div class="source-card" data-source="suyin" data-url="https://oiapi.net" data-requires-key="false" tabindex="0" role="radio" aria-checked="false">
+                        <div class="source-icon" aria-hidden="true">🔊</div>
                         <div class="source-info">
-                            <div class="source-name">聆川音源</div>
-                            <div class="source-url">guoyue2010.top</div>
+                            <div class="source-name">溯音音源</div>
+                            <div class="source-url">oiapi.net (内置Key)</div>
+                        </div>
+                        <div class="source-check" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                        </div>
+                    </div>
+                    <div class="source-card" data-source="xinghai" data-url="https://music-api.gdstudio.xyz" data-requires-key="false" tabindex="0" role="radio" aria-checked="false">
+                        <div class="source-icon" aria-hidden="true">🌟</div>
+                        <div class="source-info">
+                            <div class="source-name">GD音乐台</div>
+                            <div class="source-url">gdstudio.xyz (免费)</div>
+                        </div>
+                        <div class="source-check" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                        </div>
+                    </div>
+                    <div class="source-card" data-source="huibq" data-url="https://lxmusicapi.onrender.com" data-requires-key="false" tabindex="0" role="radio" aria-checked="false">
+                        <div class="source-icon" aria-hidden="true">🌐</div>
+                        <div class="source-info">
+                            <div class="source-name">Huibq 音源</div>
+                            <div class="source-url">onrender.com (免费)</div>
+                        </div>
+                        <div class="source-check" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                        </div>
+                    </div>
+                    <div class="source-card" data-source="nianxin" data-url="https://music.nxinxz.com" data-requires-key="false" tabindex="0" role="radio" aria-checked="false">
+                        <div class="source-icon" aria-hidden="true">💫</div>
+                        <div class="source-info">
+                            <div class="source-name">念心音源</div>
+                            <div class="source-url">nxinxz.com (免费)</div>
+                        </div>
+                        <div class="source-check" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                        </div>
+                    </div>
+                    <div class="source-card" data-source="changqing" data-url="https://musicapi.haitangw.net" data-requires-key="false" tabindex="0" role="radio" aria-checked="false">
+                        <div class="source-icon" aria-hidden="true">🌿</div>
+                        <div class="source-info">
+                            <div class="source-name">长青音源</div>
+                            <div class="source-url">haitangw.net (免费)</div>
                         </div>
                         <div class="source-check" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
@@ -1152,14 +1192,14 @@
                         <span class="step-number" aria-hidden="true">1</span>
                         <div class="step-content">
                             <div class="step-title">选择音源类型</div>
-                            <div class="step-desc">从 ikun、新澜、聆川三个音源中选择一个</div>
+                            <div class="step-desc">从 ikun、聆澜、溯音、GD音乐台、Huibq、念心、长青中选择一个</div>
                         </div>
                     </li>
                     <li class="step-item">
                         <span class="step-number" aria-hidden="true">2</span>
                         <div class="step-content">
-                            <div class="step-title">输入卡密</div>
-                            <div class="step-desc">填入您的卡密，点击「生成链接」</div>
+                            <div class="step-title">输入卡密 (如需)</div>
+                            <div class="step-desc">部分音源需要填入卡密；溯音音源已内置 Key，无需填写</div>
                         </div>
                     </li>
                     <li class="step-item">
@@ -1193,8 +1233,13 @@
                 <div class="api-list">
                     <div class="api-item">
                         <span class="api-method">GET</span>
-                        <div class="api-label">插件订阅接口</div>
-                        <div class="api-url">/api/subscription.json?source=ikun&key=YOUR_API_KEY.json</div>
+                        <div class="api-label">订阅 (有 Key)</div>
+                        <div class="api-url">/api/subscription.json?source=ikun&key=YOUR_KEY.json</div>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method">GET</span>
+                        <div class="api-label">订阅 (内置 Key)</div>
+                        <div class="api-url">/api/subscription.json?source=suyin.json</div>
                     </div>
                     <div class="api-item">
                         <span class="api-method">GET</span>
@@ -1241,6 +1286,17 @@
             { name: 'Gitcode', file: 'git.js', version: '0.2.0', emoji: '💻', requiresKey: false }
         ];
 
+        // 音源 → 支持的音源插件 (免密插件始终包含)
+        const SOURCE_PLUGINS = {
+            'ikun':      ['wy.js', 'qq.js', 'kg.js', 'kw.js'],
+            'linglan':   ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
+            'suyin':     ['wy.js', 'qq.js', 'kw.js', 'mg.js'],
+            'xinghai':   ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
+            'huibq':     ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
+            'nianxin':   ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
+            'changqing': ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
+        };
+
         // ============================================
         // Theme
         // ============================================
@@ -1277,15 +1333,27 @@
                     selectedSource = {
                         name: card.querySelector('.source-name').textContent,
                         url: card.dataset.url,
-                        source: card.dataset.source
+                        source: card.dataset.source,
+                        requiresKey: card.dataset.requiresKey !== 'false'
                     };
 
                     document.getElementById('selectedSourceName').textContent = selectedSource.name;
                     document.getElementById('selectedSourceUrl').textContent = selectedSource.url;
 
-                    const section = document.getElementById('apiKeySection');
-                    section.classList.add('visible');
-                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const keySection = document.getElementById('apiKeySection');
+
+                    if (selectedSource.requiresKey) {
+                        // 需要 Key: 显示输入框
+                        keySection.classList.add('visible');
+                        // 隐藏已有链接
+                        document.getElementById('subscriptionSection').classList.remove('visible');
+                        document.getElementById('pluginsSection').classList.remove('visible');
+                        keySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else {
+                        // 内置 Key: 跳过输入，直接生成
+                        keySection.classList.remove('visible');
+                        generateLinks();
+                    }
 
                     showToast('已选择 ' + selectedSource.name);
                 };
@@ -1309,14 +1377,19 @@
                 return;
             }
 
-            const apiKey = document.getElementById('apiKey').value.trim();
+            const apiKey = selectedSource.requiresKey
+                ? document.getElementById('apiKey').value.trim()
+                : '';
             const baseUrl = window.location.origin;
 
+            // MusicFree 要求订阅 URL 以 .json 结尾
+            // 有 Key:  ?source=xxx&key=yyy.json  (key 末尾带 .json)
+            // 无 Key:  ?source=xxx.json           (source 末尾带 .json)
             let subscriptionUrl;
             if (apiKey) {
                 subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}&key=${apiKey}.json`;
             } else {
-                subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}`;
+                subscriptionUrl = `${baseUrl}/api/subscription.json?source=${selectedSource.source}.json`;
             }
 
             document.getElementById('subscriptionUrl').textContent = subscriptionUrl;
@@ -1325,6 +1398,10 @@
             document.getElementById('pluginsSection').classList.add('visible');
 
             generatePluginCards(apiKey, baseUrl);
+
+            const target = document.getElementById('subscriptionSection');
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
             showToast('链接已生成');
         }
 
@@ -1332,7 +1409,12 @@
             const grid = document.getElementById('pluginGrid');
             grid.innerHTML = '';
 
+            const supported = SOURCE_PLUGINS[selectedSource.source] || [];
+
             PLUGINS.forEach(plugin => {
+                // 音源插件: 检查此音源是否支持
+                if (plugin.requiresKey && !supported.includes(plugin.file)) return;
+
                 let pluginUrl = `${baseUrl}/plugins/${plugin.file}`;
 
                 if (plugin.requiresKey) {

@@ -1,53 +1,4 @@
-const API_URL = "{{API_URL}}";
-const API_KEY = "{{API_KEY}}";
-const UPDATE_URL = "{{UPDATE_URL}}";
-
-function isIkunSource(updateUrl) {
-  try {
-    const url = new URL(updateUrl);
-    return url.searchParams.get("source") === "ikun";
-  } catch (error) {
-    const match = updateUrl.match(/[?&]source=([^&]+)/);
-    return match ? decodeURIComponent(match[1]) === "ikun" : false;
-  }
-}
-
-const IS_IKUN_SOURCE = isIkunSource(UPDATE_URL);
-async function requestMusicUrl(source, songId, quality) {
-  const headers = {
-    "X-API-Key": API_KEY,
-    "User-Agent": "lx-music-mobile/2.0.0",
-    "Content-Type": "application/json",
-    "Accept": "application/json"
-  };
-
-  if (IS_IKUN_SOURCE) {
-    return (
-      await axios_1.default.post(
-        `${API_URL}/music/url`,
-        {
-          source,
-          musicId: songId,
-          quality,
-        },
-        {
-          headers,
-          timeout: 10000,
-        }
-      )
-    ).data;
-  }
-
-  return (
-    await axios_1.default.get(
-      `${API_URL}/url?source=${source}&songId=${songId}&quality=${quality}`,
-      {
-        headers,
-        timeout: 10000,
-      }
-    )
-  ).data;
-}
+// {{REQUEST_HANDLER}}
 
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -1032,7 +983,7 @@ async function getMediaSource(musicItem, quality) {
       'flac': 'flac'
     };
     
-    const qualityParam = qualityMap[quality] || '320k';
+    const qualityParam = qualityMap[quality] || quality;
     
     // 尝试使用API获取播放链接
     try {

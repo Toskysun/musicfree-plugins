@@ -1,31 +1,24 @@
 /**
  * MusicFree 插件下载接口 - Netlify Function
  * 端点: /.netlify/functions/plugin
- * 功能: 下载插件文件并动态替换API Key占位符
+ * 功能: 下载插件文件并动态生成请求处理器，按音源配置注入请求逻辑和音质
  */
 
 const fs = require('fs');
 const path = require('path');
-
-// 音源映射表
-const SOURCE_MAP = {
-  'ikun': 'https://c.wwwweb.top',
-  'xinlan': 'https://source.shiqianjiang.cn/api/music',
-  'lingchuan': 'https://lc.guoyue2010.top/api/music'
-};
-
-
-// 默认音源（如果未指定）
-const DEFAULT_SOURCE = 'ikun';
-
-// 需要 API KEY 的插件列表（原始5个插件）
-const PLUGINS_REQUIRE_KEY = ['wy.js', 'mg.js', 'kg.js', 'kw.js', 'qq.js'];
+const {
+  SOURCE_CONFIG,
+  FREE_PLUGINS,
+  DEFAULT_SOURCE,
+  isSourcePlugin,
+  sourceSupportsPlugin,
+  getQualityOverride,
+} = require('./source-config');
 
 /**
  * 验证插件文件名（防止路径遍历攻击）
  */
 function isValidPluginName(pluginName) {
-  // 只允许 .js 文件，且不包含路径分隔符
   return pluginName &&
     pluginName.endsWith('.js') &&
     !pluginName.includes('..') &&
@@ -35,40 +28,136 @@ function isValidPluginName(pluginName) {
 
 /**
  * 读取插件文件
- * 插件文件位于仓库根目录的 plugins/ 目录
  */
 function readPluginFile(pluginName) {
-  // Netlify Functions运行在项目根目录的上下文中
-  // 插件文件在 plugins/ 目录，相对于functions目录为 ../../plugins/
   const pluginPath = path.join(__dirname, '..', '..', 'plugins', pluginName);
-
   console.log(`Attempting to read plugin from: ${pluginPath}`);
-
   if (!fs.existsSync(pluginPath)) {
     throw new Error(`Plugin file not found: ${pluginName}`);
   }
-
   return fs.readFileSync(pluginPath, 'utf-8');
 }
 
+/**
+ * 替换插件中 module.exports 的 supportedQualities 数组
+ * 仅匹配属性赋值形式 (key: [...])，不影响局部变量 (const x = [...])
+ */
+function replaceQualities(content, qualities) {
+  if (!qualities) return content;
+  const json = JSON.stringify(qualities);
+  return content.replace(
+    /("?supportedQualities"?\s*:\s*)\[[^\]]*\]/,
+    `$1${json}`
+  );
+}
+
+/**
+ * 根据音源类型生成请求处理器代码 (constants + requestMusicUrl 函数)
+ * 所有类型统一返回 {code: 200, url: "..."} 格式，确保插件 getMediaSource 的
+ * `res.code === 200 && res.url` 检查在所有音源下都能正常工作
+ *
+ * @param {object} sourceConfig - 音源配置对象
+ * @param {string} pluginName  - 插件文件名 (如 'wy.js')
+ * @param {string} apiUrl      - API 基础地址
+ * @param {string} effectiveKey - 有效 API Key
+ * @param {string} updateUrl   - 插件更新地址
+ */
+function generateRequestHandler(sourceConfig, pluginName, apiUrl, effectiveKey, updateUrl) {
+  const apiType = sourceConfig.apiType || 'query';
+
+  // 始终声明三个常量 (UPDATE_URL 被 module.exports.srcUrl 引用)
+  let code = `const API_URL = ${JSON.stringify(apiUrl)};\n`;
+  code += `const API_KEY = ${JSON.stringify(effectiveKey)};\n`;
+  code += `const UPDATE_URL = ${JSON.stringify(updateUrl)};\n`;
+
+  switch (apiType) {
+    // ── ikun: POST ${url}/music/url, X-API-Key, {code:200} ──
+    case 'ikun':
+      code += `
+async function requestMusicUrl(source, songId, quality) {
+  return (await axios_1.default.post(\`\${API_URL}/music/url\`, { source, musicId: songId, quality }, {
+    headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
+    timeout: 10000
+  })).data;
+}`;
+      break;
+
+    // ── query: GET ${url}/url?source=&songId=&quality=, X-API-Key, {code:200} ──
+    case 'query':
+      code += `
+async function requestMusicUrl(source, songId, quality) {
+  return (await axios_1.default.get(\`\${API_URL}/url?source=\${source}&songId=\${songId}&quality=\${quality}\`, {
+    headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
+    timeout: 10000
+  })).data;
+}`;
+      break;
+
+    // ── lxmusic: GET ${url}/url/${source}/${songId}/${quality}, {code:0} → 标准化为 {code:200} ──
+    case 'lxmusic': {
+      const authHeaderName = sourceConfig.authHeader || 'X-API-Key';
+      // 有 Key 时发送认证头，无 Key 时不发送
+      const headersCode = effectiveKey
+        ? `{ ${JSON.stringify(authHeaderName)}: API_KEY, "Content-Type": "application/json" }`
+        : `{ "Content-Type": "application/json" }`;
+      code += `
+async function requestMusicUrl(source, songId, quality) {
+  var resp = await axios_1.default.get(\`\${API_URL}/url/\${source}/\${songId}/\${quality}\`, {
+    headers: ${headersCode},
+    timeout: 10000
+  });
+  var body = resp.data;
+  if (body && body.code === 0 && body.url) return { code: 200, url: body.url };
+  if (body && body.url) return { code: 200, url: body.url };
+  return body;
+}`;
+      break;
+    }
+
+    // ── changqing: 按平台独立 URL, 音质映射 (standard/exhigh/lossless) ──
+    case 'changqing': {
+      const platformUrl = sourceConfig.platformUrls && sourceConfig.platformUrls[pluginName];
+      if (!platformUrl) {
+        code += `
+async function requestMusicUrl(source, songId, quality) {
+  throw new Error("Platform not configured for this source");
+}`;
+      } else {
+        code += `
+var _CQ_QUALITY_MAP = ${JSON.stringify(sourceConfig.qualityMap || {})};
+async function requestMusicUrl(source, songId, quality) {
+  var level = _CQ_QUALITY_MAP[quality] || quality;
+  return { code: 200, url: \`${platformUrl}?type=mp3&id=\${songId}&level=\${level}\` };
+}`;
+      }
+      break;
+    }
+
+    // ── 默认: 同 query 类型 ──
+    default:
+      code += `
+async function requestMusicUrl(source, songId, quality) {
+  return (await axios_1.default.get(\`\${API_URL}/url?source=\${source}&songId=\${songId}&quality=\${quality}\`, {
+    headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
+    timeout: 10000
+  })).data;
+}`;
+  }
+
+  return code;
+}
+
 exports.handler = async (event, context) => {
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, OPTIONS'
   };
 
-  // 处理OPTIONS预检请求
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: ''
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
-  // 只接受GET请求
   if (event.httpMethod !== 'GET') {
     return {
       statusCode: 405,
@@ -78,25 +167,15 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // 从路径中提取插件名称（先获取插件名，再决定是否需要 key）
-    // 路径格式: /plugins/wy.js 或 /.netlify/functions/plugin
+    // ── 提取插件名 ──
     let pluginName = event.queryStringParameters?.plugin;
-
-    // 如果没有从查询参数获取到，尝试从路径中提取
     if (!pluginName) {
-      const path = event.path || event.rawUrl || '';
-      console.log(`Extracting plugin name from path: ${path}`);
-
-      // 匹配 /plugins/xxx.js 或 /plugin/xxx.js
-      const match = path.match(/\/plugins?\/([^/?]+\.js)/);
-      if (match) {
-        pluginName = match[1];
-        console.log(`Extracted plugin name: ${pluginName}`);
-      }
+      const reqPath = event.path || event.rawUrl || '';
+      const match = reqPath.match(/\/plugins?\/([^/?]+\.js)/);
+      if (match) pluginName = match[1];
     }
 
     if (!pluginName) {
-      console.error('Missing plugin name in request');
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -104,9 +183,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 验证插件名称
     if (!isValidPluginName(pluginName)) {
-      console.error(`Invalid plugin name: ${pluginName}`);
       return {
         statusCode: 400,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -114,45 +191,79 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 检查插件是否需要 API Key
-    const requiresKey = PLUGINS_REQUIRE_KEY.includes(pluginName);
-
-    // 从查询参数获取音源类型（source 参数在前）
-    const source = event.queryStringParameters?.source || DEFAULT_SOURCE;
-
-    // 验证音源类型
-    if (!SOURCE_MAP[source]) {
-      console.error(`Invalid source: ${source}`);
+    // ── 免密插件: 直接返回原文件 ──
+    if (!isSourcePlugin(pluginName)) {
+      let content;
+      try {
+        content = readPluginFile(pluginName);
+      } catch (error) {
+        return {
+          statusCode: 404,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: `Plugin '${pluginName}' not found` })
+        };
+      }
+      console.log(`Serving free plugin: ${pluginName}`);
       return {
-        statusCode: 400,
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Invalid source type' })
+        statusCode: 200,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Content-Disposition': `inline; filename=${pluginName}`,
+          'Cache-Control': 'no-cache'
+        },
+        body: content
       };
     }
 
-    const apiUrl = SOURCE_MAP[source];
+    // ── 音源相关插件: 需要 source 参数 ──
+    let source = event.queryStringParameters?.source || DEFAULT_SOURCE;
+
+    // 剥离 .json 后缀 (MusicFree 会自动追加)
+    if (source.endsWith('.json')) {
+      source = source.slice(0, -5);
+    }
+
+    const sourceConfig = SOURCE_CONFIG[source];
+    if (!sourceConfig) {
+      return {
+        statusCode: 400,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: `Invalid source: ${source}` })
+      };
+    }
+
+    // 检查此音源是否支持该插件
+    if (!sourceSupportsPlugin(source, pluginName)) {
+      return {
+        statusCode: 404,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: `Source '${source}' does not support plugin '${pluginName}'` })
+      };
+    }
+
+    const apiUrl = sourceConfig.url;
     console.log(`Using source: ${source} -> ${apiUrl}`);
 
-    // 从查询参数获取 API Key（key 参数在后）
-    let key = event.queryStringParameters?.key;
-
-    // 移除 key 末尾的 .json 后缀（如果存在）
-    if (key && key.endsWith('.json')) {
-      key = key.slice(0, -5);
-      console.log(`Removed .json suffix from key`);
+    // ── 确定有效 Key ──
+    let effectiveKey;
+    if (sourceConfig.requiresKey) {
+      // 用户提供的 Key
+      let key = event.queryStringParameters?.key;
+      if (key && key.endsWith('.json')) {
+        key = key.slice(0, -5);
+      }
+      effectiveKey = key || '';
+    } else {
+      // 内置 Key
+      effectiveKey = sourceConfig.builtinKey || '';
     }
 
-    // 如果插件需要 key 但没有提供，正常返回（保留 YOUR_KEY 占位符）
-    if (requiresKey && !key) {
-      console.log(`Plugin ${pluginName} requires key but none provided, returning with YOUR_KEY placeholder`);
-    }
-
-    // 读取插件文件
+    // ── 读取插件文件 ──
     let pluginContent;
     try {
       pluginContent = readPluginFile(pluginName);
     } catch (error) {
-      console.error(`Plugin file not found: ${pluginName}`);
       return {
         statusCode: 404,
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -160,53 +271,32 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 替换占位符
-    // 1. 替换 {{API_URL}} 为实际的音源地址（所有插件都需要）
-    // 2. 替换 {{API_KEY}} 为实际的 key（仅需要 key 的插件）
+    // ── 构建更新 URL ──
+    const baseUrl = process.env.BASE_URL || process.env.URL || 'https://musicfree-plugins.netlify.app';
+    let updateUrl = `${baseUrl}/plugins/${pluginName}?source=${source}`;
+    if (sourceConfig.requiresKey && effectiveKey) {
+      updateUrl += `&key=${effectiveKey}`;
+    }
 
-    // 替换 API_KEY 占位符
+    // ── 生成并注入请求处理器 ──
     let modifiedContent = pluginContent;
 
-    // Replace API_URL placeholder
-    modifiedContent = modifiedContent.replace(/\{\{API_URL\}\}/g, apiUrl);
-    console.log(`Replaced {{API_URL}} with: ${apiUrl}`);
+    const handlerCode = generateRequestHandler(sourceConfig, pluginName, apiUrl, effectiveKey, updateUrl);
+    modifiedContent = modifiedContent.replace('// {{REQUEST_HANDLER}}', handlerCode);
 
-    if (requiresKey) {
-      if (key) {
-        modifiedContent = modifiedContent.replace(/\{\{API_KEY\}\}/g, key);
-        console.log(`Serving plugin: ${pluginName} with source: ${source}, key: ${key.substring(0, 8)}...`);
-      } else {
-        modifiedContent = modifiedContent.replace(/\{\{API_KEY\}\}/g, '');
-        console.log(`Serving plugin: ${pluginName} with source: ${source}, {{API_KEY}} replaced by empty string (no key provided)`);
-      }
-    } else {
-      console.log(`Serving plugin: ${pluginName} with source: ${source} (no key required)`);
-    }
+    // ── 音质覆盖 (按音源配置) ──
+    const qualities = getQualityOverride(source, pluginName);
+    modifiedContent = replaceQualities(modifiedContent, qualities);
 
-    // 生成 UPDATE_URL（包含 source 和 key 参数）
-    const baseUrl = process.env.BASE_URL || process.env.URL || 'https://musicfree-plugins.netlify.app';
-    let updateUrl = `${baseUrl}/plugins/${pluginName}`;
+    console.log(`Serving plugin: ${pluginName}, source: ${source}, apiType: ${sourceConfig.apiType || 'query'}, key: ${sourceConfig.requiresKey ? (effectiveKey ? effectiveKey.substring(0, 8) + '...' : '(none)') : '(builtin)'}, qualities: ${qualities ? JSON.stringify(qualities) : 'default'}`);
 
-    // only key-required plugins carry source and key
-    if (requiresKey) {
-      updateUrl += `?source=${source}`;
-      if (key) {
-        updateUrl += `&key=${key}`;
-      }
-    }
-
-    // 替换 UPDATE_URL 占位符
-    modifiedContent = modifiedContent.replace(/\{\{UPDATE_URL\}\}/g, updateUrl);
-    console.log(`Replaced {{UPDATE_URL}} with: ${updateUrl}`);
-
-    // 返回JavaScript内容
     return {
       statusCode: 200,
       headers: {
         ...headers,
         'Content-Type': 'application/javascript; charset=utf-8',
         'Content-Disposition': `inline; filename=${pluginName}`,
-        'Cache-Control': 'no-cache' // 禁用缓存确保Key更新
+        'Cache-Control': 'no-cache'
       },
       body: modifiedContent
     };
