@@ -20,6 +20,7 @@
  *   query    - GET  ${url}/url?source=&songId=&quality=                 header: X-API-Key
  *   lxmusic  - GET  ${url}/url/${source}/${songId}/${quality}           header: authHeader (或无)
  *   changqing- 按平台独立 URL, 音质键映射 (standard/exhigh/lossless)
+ *   fengyu   - 多端点聚合免费音源, 按平台独立处理 (littleyouzi/bugpk/oiapi/migu/kuwo)
  */
 
 const SOURCE_CONFIG = {
@@ -124,6 +125,19 @@ const SOURCE_CONFIG = {
       'kw.js':  ['128k', '320k', 'flac'],
       'mg.js':  ['128k', '320k', 'flac'],
     }
+  },
+  'fengyu': {
+    name: '枫雨音源',
+    url: '',
+    requiresKey: false,
+    apiType: 'fengyu',
+    plugins: {
+      'wy.js':  ['128k', '320k', 'flac', 'flac24bit', 'hires', 'master'],
+      'qq.js':  ['128k', '320k', 'flac', 'flac24bit', 'atmos', 'atmos_plus', 'master'],
+      'kw.js':  ['128k', '320k', 'flac', 'flac24bit'],
+      'mg.js':  ['128k', '320k', 'flac', 'flac24bit'],
+    }
+    // 不支持: kg.js (酷狗)
   }
 };
 

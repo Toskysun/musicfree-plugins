@@ -133,6 +133,59 @@ async function requestMusicUrl(source, songId, quality) {
       break;
     }
 
+    // ── fengyu: 多端点聚合免费音源, 按平台独立处理 ──
+    case 'fengyu': {
+      switch (pluginName) {
+        case 'qq.js':
+          code += `
+var _FY_QQ_Q = {"128k":"10","320k":"8","flac":"5","flac24bit":"5","atmos":"1","atmos_plus":"1","master":"0"};
+async function requestMusicUrl(source, songId, quality) {
+  var q = _FY_QQ_Q[quality] || "10";
+  try { var r = await axios_1.default.get("https://www.littleyouzi.com/api/v2/qqmusic?quality=" + q + "&mid=" + songId, {timeout:10000}); if (r.data && r.data.retcode === 0 && r.data.data && r.data.data.audio) return {code:200,url:r.data.data.audio}; } catch(e) {}
+  try { var r2 = await axios_1.default.get("https://tang.api.s01s.cn/music_open_api.php?mid=" + songId, {timeout:10000}); if (r2.data && r2.data.song_play_url_sq) return {code:200,url:r2.data.song_play_url_sq}; } catch(e) {}
+  throw new Error("QQ音乐接口获取失败");
+}`;
+          break;
+        case 'wy.js':
+          code += `
+var _FY_WY_Q1 = {"128k":"7","320k":"6","flac":"4","flac24bit":"3","hires":"3","master":"1"};
+var _FY_WY_Q2 = {"128k":"standard","320k":"exhigh","flac":"lossless","flac24bit":"hires","hires":"hires","master":"jymaster"};
+async function requestMusicUrl(source, songId, quality) {
+  try { var q1 = _FY_WY_Q1[quality] || "7"; var r = await axios_1.default.get("https://www.littleyouzi.com/api/v2/netmusic?mid=" + songId + "&type=json&quality=" + q1, {timeout:10000}); if (r.data && r.data.retcode === 0 && r.data.data && r.data.data.audio) { var a = r.data.data.audio.trim(); if (a) return {code:200,url:a}; } } catch(e) {}
+  try { var q2 = _FY_WY_Q2[quality] || "lossless"; var r2 = await axios_1.default.get("https://api.bugpk.com/api/163_music?ids=" + songId + "&type=json&level=" + q2, {timeout:10000}); if (r2.data && r2.data.status == 200 && r2.data.url) { var u = r2.data.url.trim(); if (u) return {code:200,url:u}; } } catch(e) {}
+  try { var r3 = await axios_1.default.get("https://oiapi.net/api/Music_163?id=" + songId, {timeout:10000}); if (r3.data && r3.data.code === 0 && r3.data.data && r3.data.data[0] && r3.data.data[0].url) { var v = r3.data.data[0].url.trim(); if (v) return {code:200,url:v}; } } catch(e) {}
+  throw new Error("网易云接口获取失败");
+}`;
+          break;
+        case 'mg.js':
+          code += `
+var _FY_MG_Q = {"128k":"PQ","320k":"HQ","flac":"SQ","flac24bit":"ZQ"};
+async function requestMusicUrl(source, songId, quality) {
+  var tf = _FY_MG_Q[quality] || "PQ";
+  var r = await axios_1.default.get("https://app.c.nf.migu.cn/MIGUM2.0/strategy/listen-url/v2.4?netType=01&resourceType=E&songId=" + songId + "&toneFlag=" + tf, {headers:{channel:"014000D",aversionid:"DF94898993A5A28A64968A9FD0ADA0749397878BC39DD7BC68C584A1BAAFC96EC5938D8D8ED1A490949A8F9EB680997296DFD0D391D6ABBC69928AD0B57D99779CC8B88CDDECEE89628F89A1827E986F94978AD392A7A2916A928AA4878199779C","User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},timeout:10000});
+  var body = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+  if (body && body.code === "000000") { var url = (body.data && body.data.url) || body.playUrl || body.listenUrl; if (url) { if (url.startsWith("//")) url = "https:" + url; return {code:200,url:url.replace(/\\+/g,"%2B")}; } }
+  throw new Error("咪咕音乐获取失败");
+}`;
+          break;
+        case 'kw.js':
+          code += `
+var _FY_KW_Q = {"128k":"128kmp3","320k":"320kmp3","flac":"2000kflac","flac24bit":"2000kflac"};
+async function requestMusicUrl(source, songId, quality) {
+  var br = _FY_KW_Q[quality] || "2000kflac";
+  var u = Math.floor(Math.random() * 4294967295);
+  var uid = Math.floor(Math.random() * 4294967295);
+  var r = await axios_1.default.get("https://nmobi.kuwo.cn/mobi.s?f=web&source=kwplayercar_ar_6.0.0.9_B_jiakong_vh.apk&type=convert_url_with_sign&rid=" + songId + "&br=" + br + "&user=" + u + "&loginUid=" + uid, {timeout:10000});
+  if (r.data && r.data.code === 200 && r.data.data && r.data.data.url) return {code:200,url:r.data.data.url};
+  throw new Error("酷我音乐获取失败");
+}`;
+          break;
+        default:
+          code += `\nasync function requestMusicUrl() { throw new Error("不支持的平台"); }`;
+      }
+      break;
+    }
+
     // ── 默认: 同 query 类型 ──
     default:
       code += `
