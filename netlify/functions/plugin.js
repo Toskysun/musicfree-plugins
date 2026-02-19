@@ -52,6 +52,25 @@ function replaceQualities(content, qualities) {
 }
 
 /**
+ * 在 module.exports 的 platform 字段后追加 [source] 后缀
+ * 仅修改最后一个 module.exports 块中的 platform，不影响内部数据对象
+ */
+function appendPlatformSuffix(content, source) {
+  if (!source) return content;
+  const lastExportsIdx = content.lastIndexOf('module.exports');
+  if (lastExportsIdx === -1) return content;
+
+  const before = content.substring(0, lastExportsIdx);
+  const after = content.substring(lastExportsIdx);
+
+  const modified = after.replace(
+    /(['"]?platform['"]?\s*:\s*['"])([^'"]*?)(['"])/,
+    `$1$2[${source}]$3`
+  );
+  return before + modified;
+}
+
+/**
  * 根据音源类型生成请求处理器代码 (constants + requestMusicUrl 函数)
  * 所有类型统一返回 {code: 200, url: "..."} 格式，确保插件 getMediaSource 的
  * `res.code === 200 && res.url` 检查在所有音源下都能正常工作
@@ -340,6 +359,9 @@ exports.handler = async (event, context) => {
     // ── 音质覆盖 (按音源配置) ──
     const qualities = getQualityOverride(source, pluginName);
     modifiedContent = replaceQualities(modifiedContent, qualities);
+
+    // ── 平台名称追加 [音源] 后缀 ──
+    modifiedContent = appendPlatformSuffix(modifiedContent, source);
 
     console.log(`Serving plugin: ${pluginName}, source: ${source}, apiType: ${sourceConfig.apiType || 'query'}, key: ${sourceConfig.requiresKey ? (effectiveKey ? effectiveKey.substring(0, 8) + '...' : '(none)') : '(builtin)'}, qualities: ${qualities ? JSON.stringify(qualities) : 'default'}`);
 
