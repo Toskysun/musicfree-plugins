@@ -42,10 +42,14 @@ async function callNetlifyHandler(handler, req, res) {
 app.use('/netlify', (req, res) => res.status(404).end());
 
 // 订阅接口: GET /api/subscription.json
-app.get('/api/subscription.json', (req, res) => callNetlifyHandler(subscriptionHandler, req, res));
+app.get('/api/subscription.json', (req, res, next) =>
+  callNetlifyHandler(subscriptionHandler, req, res).catch(next)
+);
 
 // 插件下载: GET /plugins/:plugin 和 /plugin/:plugin
-app.get(['/plugins/:plugin', '/plugin/:plugin'], (req, res) => callNetlifyHandler(pluginHandler, req, res));
+app.get(['/plugins/:plugin', '/plugin/:plugin'], (req, res, next) =>
+  callNetlifyHandler(pluginHandler, req, res).catch(next)
+);
 
 // 健康检查
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
@@ -64,6 +68,21 @@ app.use((req, res) => {
   } else {
     res.status(404).json({ error: 'Not Found' });
   }
+});
+
+// Express 错误处理中间件 (必须有 4 个参数)
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('Express error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// 防止未捕获的异常/rejection 导致进程退出
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
 });
 
 app.listen(PORT, () => {
