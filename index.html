@@ -1239,8 +1239,7 @@
                             <div class="source-name">溯音音源</div>
                             <div class="source-url">oiapi.net (免费)</div>
                             <div class="source-quality-indicator">
-                                <span class="quality-tag q-master">Master</span>
-                                <span class="quality-tag q-spatial">Atmos</span>
+                                <span class="quality-tag q-lossless">FLAC</span>
                             </div>
                         </div>
                         <div class="source-check" aria-hidden="true">
@@ -1266,7 +1265,7 @@
                             <div class="source-name">念心音源</div>
                             <div class="source-url">nxinxz.com (免费)</div>
                             <div class="source-quality-indicator">
-                                <span class="quality-tag q-lossless">FLAC</span>
+                                <span class="quality-tag q-basic">暂停服务</span>
                             </div>
                         </div>
                         <div class="source-check" aria-hidden="true">
@@ -1469,11 +1468,11 @@
         const SOURCE_PLUGINS = {
             'ikun':      ['wy.js', 'qq.js', 'kg.js', 'kw.js'],
             'linglan':   ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
-            'suyin':     ['wy.js', 'qq.js', 'kw.js', 'mg.js'],
+            'suyin':     ['wy.js'],
             'fengyu':    ['wy.js', 'qq.js', 'kw.js', 'mg.js'],
-            'xinghai':   ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
-            'huibq':     ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
-            'nianxin':   ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
+            'xinghai':   ['wy.js', 'kw.js'],
+            'huibq':     ['kw.js', 'qq.js'],
+            'nianxin':   [],
             'changqing': ['wy.js', 'qq.js', 'kg.js', 'kw.js', 'mg.js'],
         };
 
@@ -1481,11 +1480,10 @@
         const SOURCE_QUALITIES = {
             'ikun':      { 'wy.js': null, 'qq.js': null, 'kg.js': null, 'kw.js': null },
             'linglan':   { 'wy.js': null, 'qq.js': null, 'kg.js': null, 'kw.js': null, 'mg.js': null },
-            'suyin':     { 'wy.js': ['128k','320k','flac'], 'qq.js': ['128k','320k','flac','hires','atmos','master'], 'kw.js': ['128k','320k','flac'], 'mg.js': ['128k','320k'] },
+            'suyin':     { 'wy.js': ['128k','320k','flac'] },
             'fengyu':    { 'wy.js': ['128k','320k','flac','flac24bit','hires','master'], 'qq.js': ['128k','320k','flac','flac24bit','atmos','atmos_plus','master'], 'kw.js': ['128k','320k','flac','flac24bit'], 'mg.js': ['128k','320k','flac','flac24bit'] },
-            'xinghai':   { 'wy.js': ['128k','192k','320k','flac','flac24bit'], 'qq.js': ['128k','192k','320k','flac','flac24bit'], 'kg.js': ['128k','192k','320k','flac','flac24bit'], 'kw.js': ['128k','192k','320k','flac','flac24bit'], 'mg.js': ['128k','192k','320k','flac'] },
-            'huibq':     { 'wy.js': ['128k','320k'], 'qq.js': ['128k','320k'], 'kg.js': ['128k','320k'], 'kw.js': ['128k','320k'], 'mg.js': ['128k','320k'] },
-            'nianxin':   { 'wy.js': ['128k','320k','flac'], 'qq.js': ['128k','320k','flac'], 'kg.js': ['128k','320k','flac'], 'kw.js': ['128k','320k','flac'], 'mg.js': ['128k','320k','flac'] },
+            'xinghai':   { 'wy.js': ['128k','192k','320k','flac','flac24bit'], 'kw.js': ['128k','192k','320k','flac'] },
+            'huibq':     { 'kw.js': ['128k','320k'], 'qq.js': ['128k','320k'] },
             'changqing': { 'wy.js': ['128k','320k','flac'], 'qq.js': ['128k','320k','flac'], 'kg.js': ['128k','320k','flac'], 'kw.js': ['128k','320k','flac'], 'mg.js': ['128k','320k','flac'] },
         };
 

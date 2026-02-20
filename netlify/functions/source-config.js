@@ -52,29 +52,28 @@ const SOURCE_CONFIG = {
   },
   'suyin': {
     name: '溯音音源',
-    url: 'https://oiapi.net',
+    // wy: GET https://oiapi.net/api/Music_163?id={id} → {code:0, data:[{url}]}
+    // qq: -403 维护中; kw/mg: 按关键词搜索，不适合 ID 直查
+    url: 'https://oiapi.net/api/Music_163',
     requiresKey: false,
-    builtinKey: 'oiapi-ef6133b7-ac2f-dc7d-878c-d3e207a82575',
-    apiType: 'query',
+    builtinKey: '',
+    apiType: 'suyin',
     plugins: {
-      'wy.js':  ['128k', '320k', 'flac'],
-      'qq.js':  ['128k', '320k', 'flac', 'hires', 'atmos', 'master'],
-      'kw.js':  ['128k', '320k', 'flac'],
-      'mg.js':  ['128k', '320k'],
+      'wy.js': ['128k', '320k', 'flac'],
+      // qq/kw/mg: 暂不可用 (qq维护中, kw/mg仅支持关键词搜索)
     }
-    // 不支持: kg.js (酷狗)
   },
   'xinghai': {
     name: 'GD音乐台',
-    url: 'https://music-api.gdstudio.xyz',
+    // API 格式: /api.php?types=url&source=netease&id=...&br=128|320|740|999
+    url: 'https://music-api.gdstudio.xyz/api.php?use_xbridge3=true&loader_name=forest',
     requiresKey: false,
-    apiType: 'lxmusic',
+    apiType: 'gdstudio',
     plugins: {
-      'wy.js':  ['128k', '192k', '320k', 'flac', 'flac24bit'],
-      'qq.js':  ['128k', '192k', '320k', 'flac', 'flac24bit'],
-      'kg.js':  ['128k', '192k', '320k', 'flac', 'flac24bit'],
-      'kw.js':  ['128k', '192k', '320k', 'flac', 'flac24bit'],
-      'mg.js':  ['128k', '192k', '320k', 'flac'],
+      'wy.js': ['128k', '192k', '320k', 'flac', 'flac24bit'],
+      // kw.js: kuwo 暂时返回空 URL，保留以备 API 恢复
+      'kw.js': ['128k', '192k', '320k', 'flac'],
+      // qq/kg/mg: GD API 不支持 tencent/kugou/migu
     }
   },
   'huibq': {
@@ -84,25 +83,23 @@ const SOURCE_CONFIG = {
     builtinKey: 'share-v3',
     apiType: 'lxmusic',
     authHeader: 'X-Request-Key',
+    // API 只支持 kw 和 tx，qq 插件需映射为 tx
+    sourceMap: { 'qq': 'tx' },
     plugins: {
-      'wy.js':  ['128k', '320k'],
-      'qq.js':  ['128k', '320k'],
-      'kg.js':  ['128k', '320k'],
-      'kw.js':  ['128k', '320k'],
-      'mg.js':  ['128k', '320k'],
+      'kw.js': ['128k', '320k'],
+      'qq.js': ['128k', '320k'],
+      // wy/kg/mg: API 明确不支持
     }
   },
   'nianxin': {
     name: '念心音源',
+    // 实际端点为 /wy.php?id=...&level=lossless&type=mp3 等 PHP 路径
+    // 当前全部无响应 (2026-02-20 测试)，暂时禁用所有插件
     url: 'https://music.nxinxz.com',
     requiresKey: false,
     apiType: 'lxmusic',
     plugins: {
-      'wy.js':  ['128k', '320k', 'flac'],
-      'qq.js':  ['128k', '320k', 'flac'],
-      'kg.js':  ['128k', '320k', 'flac'],
-      'kw.js':  ['128k', '320k', 'flac'],
-      'mg.js':  ['128k', '320k', 'flac'],
+      // 所有平台端点当前无响应，待恢复后重新开放
     }
   },
   'changqing': {

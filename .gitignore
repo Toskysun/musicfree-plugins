@@ -40,3 +40,8 @@ Thumbs.db
 # Netlify
 .netlify/
 node_modules/
+
+# Markdown (except README)
+*.md
+!README.md
+!readme.md

@@ -151,7 +151,7 @@ exports.handler = async (event, context) => {
       }
 
       pluginsList.push({
-        name: plugin.isFree ? plugin.name : `${plugin.name}[${source}]`,
+        name: plugin.name,
         url: url,
         version: plugin.version
       });

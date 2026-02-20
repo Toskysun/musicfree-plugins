@@ -52,25 +52,6 @@ function replaceQualities(content, qualities) {
 }
 
 /**
- * 在 module.exports 的 platform 字段后追加 [source] 后缀
- * 仅修改最后一个 module.exports 块中的 platform，不影响内部数据对象
- */
-function appendPlatformSuffix(content, source) {
-  if (!source) return content;
-  const lastExportsIdx = content.lastIndexOf('module.exports');
-  if (lastExportsIdx === -1) return content;
-
-  const before = content.substring(0, lastExportsIdx);
-  const after = content.substring(lastExportsIdx);
-
-  const modified = after.replace(
-    /(['"]?platform['"]?\s*:\s*['"])([^'"]*?)(['"])/,
-    `$1$2[${source}]$3`
-  );
-  return before + modified;
-}
-
-/**
  * 根据音源类型生成请求处理器代码 (constants + requestMusicUrl 函数)
  * 所有类型统一返回 {code: 200, url: "..."} 格式，确保插件 getMediaSource 的
  * `res.code === 200 && res.url` 检查在所有音源下都能正常工作
@@ -119,9 +100,17 @@ async function requestMusicUrl(source, songId, quality) {
       const headersCode = effectiveKey
         ? `{ ${JSON.stringify(authHeaderName)}: API_KEY, "Content-Type": "application/json" }`
         : `{ "Content-Type": "application/json" }`;
+      // 可选 sourceMap: 将插件 source 名映射为 API 期望的名称 (如 qq → tx)
+      const sourceMapCode = sourceConfig.sourceMap
+        ? `var _LX_SRC_MAP = ${JSON.stringify(sourceConfig.sourceMap)};\n`
+        : '';
+      const resolveSource = sourceConfig.sourceMap
+        ? '(_LX_SRC_MAP[source] || source)'
+        : 'source';
       code += `
-async function requestMusicUrl(source, songId, quality) {
-  var resp = await axios_1.default.get(\`\${API_URL}/url/\${source}/\${songId}/\${quality}\`, {
+${sourceMapCode}async function requestMusicUrl(source, songId, quality) {
+  var apiSource = ${resolveSource};
+  var resp = await axios_1.default.get(\`\${API_URL}/url/\${apiSource}/\${songId}/\${quality}\`, {
     headers: ${headersCode},
     timeout: 10000
   });
@@ -129,6 +118,22 @@ async function requestMusicUrl(source, songId, quality) {
   if (body && body.code === 0 && body.url) return { code: 200, url: body.url };
   if (body && body.url) return { code: 200, url: body.url };
   return body;
+}`;
+      break;
+    }
+
+    // ── suyin: oiapi.net 分平台端点 (wy 用 /api/Music_163?id=, 其余各异) ──
+    case 'suyin': {
+      code += `
+async function requestMusicUrl(source, songId, quality) {
+  if (source === "wy") {
+    var resp = await axios_1.default.get(API_URL + "?id=" + encodeURIComponent(songId), { timeout: 10000 });
+    var body = resp.data;
+    if (body && body.code === 0 && Array.isArray(body.data) && body.data[0] && body.data[0].url)
+      return { code: 200, url: body.data[0].url };
+    return { code: 500, msg: (body && body.message) || "No URL" };
+  }
+  throw new Error("Suyin: platform " + source + " not supported");
 }`;
       break;
     }
@@ -149,6 +154,24 @@ async function requestMusicUrl(source, songId, quality) {
   return { code: 200, url: \`${platformUrl}?type=mp3&id=\${songId}&level=\${level}\` };
 }`;
       }
+      break;
+    }
+
+    // ── gdstudio: GD音乐台 /api.php?types=url&source=netease&id=...&br=... ──
+    case 'gdstudio': {
+      code += `
+var _GD_SRC = {"wy":"netease","kw":"kuwo","kg":"kugou","tx":"tencent","mg":"migu"};
+var _GD_BR  = {"128k":"128","192k":"192","320k":"320","flac":"740","flac24bit":"999"};
+async function requestMusicUrl(source, songId, quality) {
+  var apiSource = _GD_SRC[source] || source;
+  var br = _GD_BR[quality] || "128";
+  var resp = await axios_1.default.get(API_URL + "&types=url&source=" + apiSource + "&id=" + songId + "&br=" + br, {
+    timeout: 10000
+  });
+  var body = resp.data;
+  if (body && body.url) return { code: 200, url: body.url };
+  return { code: 500, msg: (body && body.detail) || "No URL returned" };
+}`;
       break;
     }
 
@@ -359,9 +382,6 @@ exports.handler = async (event, context) => {
     // ── 音质覆盖 (按音源配置) ──
     const qualities = getQualityOverride(source, pluginName);
     modifiedContent = replaceQualities(modifiedContent, qualities);
-
-    // ── 平台名称追加 [音源] 后缀 ──
-    modifiedContent = appendPlatformSuffix(modifiedContent, source);
 
     console.log(`Serving plugin: ${pluginName}, source: ${source}, apiType: ${sourceConfig.apiType || 'query'}, key: ${sourceConfig.requiresKey ? (effectiveKey ? effectiveKey.substring(0, 8) + '...' : '(none)') : '(builtin)'}, qualities: ${qualities ? JSON.stringify(qualities) : 'default'}`);
 
