@@ -589,13 +589,14 @@ async function getTopListDetail(topListItem, page = 1) {
 /**
  * 导入音乐歌单
  * @async
- * @param {string} playlistUrl - 歌单分享链接或纯数字 ID
+ * @param {string} playlistUrl - 歌单分享链接（含短链接）或纯数字 ID
  * @returns {Promise<Array<Object>>} 歌单中的音乐列表
  *
  * @description
- * 支持两种格式：
- * 1. 完整分享链接：https://xxx.douyin.com/qishui/share/playlist?playlist_id=123456
- * 2. 纯数字 ID：123456
+ * 支持三种格式：
+ * 1. 短链接：https://qishui.douyin.com/s/XXXXXXXX/（自动跟随重定向解析）
+ * 2. 完整分享链接：https://music.douyin.com/qishui/share/playlist?playlist_id=123456
+ * 3. 纯数字 ID：123456
  *
  * @example
  * const musicList = await importMusicPlaylist("7036274230471712007");
@@ -604,18 +605,39 @@ async function getTopListDetail(topListItem, page = 1) {
 async function importMusicPlaylist(playlistUrl) {
   let playlistId;
 
-  // 尝试从完整 URL 中提取 ID
-  !playlistId && (playlistId = (playlistUrl.match(/https?:\/\/(.*?).douyin.com\/qishui\/share\/playlist\?playlist_id=([0-9]+)/) || [])[2]);
+  // 短链接：跟随一次 302 重定向取真实 URL
+  if (/douyin\.com\/s\//i.test(playlistUrl)) {
+    try {
+      const redirectRes = await axios.default.get(playlistUrl.trim(), {
+        maxRedirects: 0,
+        validateStatus: () => true,
+        headers: { "User-Agent": "Mozilla/5.0" }
+      });
+      const location = redirectRes.headers && redirectRes.headers.location;
+      if (location) playlistUrl = location;
+    } catch (e) {
+      // 忽略，继续尝试原始字符串
+    }
+  }
+
+  // 尝试从完整 URL 中提取 playlist_id
+  !playlistId && (playlistId = (playlistUrl.match(/[?&]playlist_id=(\d+)/) || [])[1]);
+
+  // 兼容旧正则（路径含 playlist_id 的情况）
+  !playlistId && (playlistId = (playlistUrl.match(/https?:\/\/.*?\.douyin\.com\/qishui\/share\/playlist\?playlist_id=(\d+)/) || [])[1]);
 
   // 尝试匹配纯数字 ID
   if (!playlistId) {
-    playlistId = (playlistUrl.match(/^(\d+)$/) || [])[1];
+    playlistId = (playlistUrl.trim().match(/^(\d+)$/) || [])[1];
   }
 
   if (!playlistId) return;
 
   const playlistDetail = await fetchPlaylistDetail(playlistId);
-  return playlistDetail.data.media_resources.map(parsePlaylistMediaResource);
+  // 过滤掉视频等非音乐资源（entity 结构不同会导致解析崩溃）
+  return playlistDetail.data.media_resources
+    .filter(r => r.type === "track" && r.entity && r.entity.track_wrapper)
+    .map(parsePlaylistMediaResource);
 }
 
 /**
@@ -864,8 +886,8 @@ async function getMusicPlaylistInfo(playlist) {
 
 module.exports = {
   "platform": "汽水音乐",
-  "version": "0.2.3",
-  "author": "Toskysun&简云",
+  "version": "0.2.4",
+  "author": "Toskysun",
   "appVersion": ">0.1.0-alpha.0",
   "srcUrl": "https://musicfree-plugins.netlify.app/plugins/qishui.js",
   "cacheControl": "no-cache",
