@@ -466,13 +466,20 @@ async function getLyric(musicItem) {
 
     if (res.data?.code === 0 && res.data?.req?.code === 0) {
       const data = res.data.req.data;
-
-      // 返回加密的 hex 字符串，应用层会自动解密
-      return {
+      const lyricResult = {
         rawLrc: data.lyric || undefined,        // 原文（加密）
         translation: data.trans || undefined,    // 译文（加密）
         romanization: data.roma || undefined,    // 罗马音（加密）✨
       };
+
+      // 新接口成功但歌词内容为空时，降级到老接口
+      if (!lyricResult.rawLrc && !lyricResult.translation && !lyricResult.romanization) {
+        console.warn("[QQ音乐] 新 API 返回空歌词，降级到旧 API");
+        return getLyricLegacy(musicItem);
+      }
+
+      // 返回加密的 hex 字符串，应用层会自动解密
+      return lyricResult;
     }
 
     // API 失败，降级到旧 API
@@ -969,7 +976,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.3.2",
+  version: "0.3.3",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表
