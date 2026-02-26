@@ -100,15 +100,21 @@ function formatMusicItem(_, qualityInfo = {}) {
     avatar: s.mid ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${s.mid}.jpg` : "",
   }));
 
+  // 封面优先用专辑封面，fallback 到第一个歌手头像
+  const singerMid = _.singer && _.singer[0] && _.singer[0].mid;
+  const artwork = albummid
+    ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${albummid}.jpg`
+    : singerMid
+      ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${singerMid}.jpg`
+      : undefined;
+
   return {
     id: _.id || _.songid,
     songmid: _.mid || _.songmid,
     title: _.title || _.songname,
     artist: _.singer.map((s) => s.name).join(", "),
     singerList: singerList,
-    artwork: albummid
-      ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${albummid}.jpg`
-      : undefined,
+    artwork,
     album: albumname,
     lrc: _.lyric || undefined,
     albumid: albumid,
@@ -765,7 +771,7 @@ async function getMusicInfoForComment(musicItem) {
 // 通过ID/songmid获取歌曲详细信息
 async function getMusicInfo(musicBase) {
   // 如果已有完整信息（artwork和qualities），直接返回，避免重复请求
-  if (musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
+  if (typeof musicBase.artwork === 'string' && musicBase.artwork && musicBase.qualities && Object.keys(musicBase.qualities).length > 0) {
     return {
       id: musicBase.id,
       songid: musicBase.songid || musicBase.id,
@@ -832,6 +838,7 @@ async function getMusicInfo(musicBase) {
         name: s.name,
       }));
 
+      const singerMid = singers[0] && singers[0].mid;
       return {
         id: track.id,
         songid: track.id,
@@ -845,7 +852,9 @@ async function getMusicInfo(musicBase) {
         albummid: album.mid,
         artwork: album.mid
           ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${album.mid}.jpg`
-          : undefined,
+          : singerMid
+            ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${singerMid}.jpg`
+            : undefined,
         duration: track.interval,
         qualities: parseQualities(track.file),
         platform: 'QQ音乐',
@@ -960,7 +969,7 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "QQ音乐",
   author: "Toskysun",
-  version: "0.3.1",
+  version: "0.3.2",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
   // 声明插件支持的音质列表
