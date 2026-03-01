@@ -75,7 +75,7 @@ function generateRequestHandler(sourceConfig, pluginName, apiUrl, effectiveKey, 
     case 'ikun':
       code += `
 async function requestMusicUrl(source, songId, quality) {
-  return (await axios_1.default.post(\`\${API_URL}/music/url\`, { source, musicId: songId, quality }, {
+  return (await axios_1.default.post(\`\${API_URL}/music/url\`, { source, musicId: String(songId), quality }, {
     headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
     timeout: 10000
   })).data;
