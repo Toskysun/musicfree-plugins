@@ -97,7 +97,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// ── 启动，明确绑定 0.0.0.0 ──
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[READY] MusicFree 插件服务运行在端口 ${PORT}`);
-});
+// ── 启动（本地开发）/ 导出（Vercel serverless）──
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[READY] MusicFree 插件服务运行在端口 ${PORT}`);
+  });
+}
+
+module.exports = app;

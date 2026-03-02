@@ -126,7 +126,7 @@ exports.handler = async (event, context) => {
       key = key.slice(0, -5);
     }
 
-    const baseUrl = process.env.BASE_URL || process.env.URL || 'https://musicfree-plugins.netlify.app';
+    const baseUrl = process.env.BASE_URL || 'https://music.cnmb.us.ci';
 
     // ── 扫描并过滤插件 ──
     const allPlugins = scanPlugins();

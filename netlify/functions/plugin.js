@@ -367,7 +367,7 @@ exports.handler = async (event, context) => {
     }
 
     // ── 构建更新 URL ──
-    const baseUrl = process.env.BASE_URL || process.env.URL || 'https://musicfree-plugins.netlify.app';
+    const baseUrl = process.env.BASE_URL || 'https://music.cnmb.us.ci';
     let updateUrl = `${baseUrl}/plugins/${pluginName}?source=${source}`;
     if (sourceConfig.requiresKey && effectiveKey) {
       updateUrl += `&key=${effectiveKey}`;
