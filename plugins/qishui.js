@@ -48,12 +48,6 @@ const AUDIO_PLAYBACK_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36"
 };
 
-/**
- * 汽水 VIP 播放接口配置
- */
-const QISHUI_VIP_API_BASE = "http://api.vsaa.cn/api/music.qishui.vip";
-const QISHUI_VIP_PROXY_SERVER = "https://proxy.qishui.vsaa.cn/qishui/proxy";
-
 // ============================================
 // 工具函数
 // ============================================
@@ -450,7 +444,7 @@ async function getMusicInfo(musicBase) {
 }
 
 /**
- * 获取音乐播放源（VIP 接口）
+ * 获取音乐播放源
  * @async
  * @param {Object} musicItem - 音乐对象
  * @param {string} musicItem.id - 音乐 ID
@@ -461,56 +455,36 @@ async function getMusicPlaybackSource(musicItem, quality = "128k") {
   if (!musicItem?.id) return null;
 
   try {
-    const qualityToLevel = {
-      "128k": "standard",
-      "320k": "high",
-      "flac": "lossless",
-    };
-    const level = qualityToLevel[quality] || "standard";
-
-    // 1. 获取原始音源信息
-    const response = await axios.default.get(QISHUI_VIP_API_BASE, {
-      params: { act: "song", id: musicItem.id, level },
-      timeout: 15000
-    });
-
-    const song = response?.data?.data?.[0];
-    if (!song?.url) return null;
-
-    // 2. 无需解密：直接返回
-    if (!song.ekey) {
-      return { url: song.url };
+    if (musicItem.qualities && Object.keys(musicItem.qualities).length > 0 && !musicItem.qualities[quality]) {
+      console.error(`[汽水音乐] 歌曲不支持音质 ${quality}`);
+      throw new Error(`该歌曲不支持 ${quality} 音质`);
     }
 
-    // 3. 需要解密：调用代理服务
-    try {
-      const proxyRes = await axios.default.post(
-        QISHUI_VIP_PROXY_SERVER,
-        {
-          url: song.url,
-          key: song.ekey,
-          filename: song.name,
-          ext: "aac"
-        },
-        {
-          timeout: 60000,
-          headers: { "Content-Type": "application/json" }
-        }
-      );
+    const seoUrl = `https://beta-luna.douyin.com/luna/h5/seo_track?track_id=${musicItem.id}&device_platform=web`;
+    const seoResponse = await axios.default.get(seoUrl);
+    const playInfoUrl = seoResponse?.data?.track_player?.url_player_info;
 
-      if (proxyRes.data?.code === 200 && proxyRes.data?.url) {
-        return { url: proxyRes.data.url };
-      } else {
-        console.warn("[汽水音乐] 代理服务返回错误:", proxyRes.data?.msg || "未知错误");
-      }
-    } catch (err) {
-      console.warn("[汽水音乐] 代理请求失败，回退到原始地址:", err.message);
+    if (!playInfoUrl) {
+      throw new Error("未找到播放信息地址");
+    }
+
+    const playInfoResponse = await axios.default.get(playInfoUrl);
+    const playInfoList = playInfoResponse?.data?.Result?.Data?.PlayInfoList || [];
+
+    if (!playInfoList.length) {
+      throw new Error("播放列表为空");
+    }
+
+    const highestQualityInfo = playInfoList[playInfoList.length - 1];
+    const playUrl = highestQualityInfo?.MainPlayUrl;
+
+    if (!playUrl) {
+      throw new Error("未找到播放地址");
     }
 
     return {
-      needDecrypt: true,
-      decryptKey: song.ekey,
-      _note: "需本地解密，请确保代理服务运行"
+      url: playUrl.replace("audio_mp4", "audio_mp3"),
+      headers: AUDIO_PLAYBACK_HEADERS
     };
   } catch (error) {
     console.error(`[汽水音乐] 获取播放源错误: ${error.message}`);
@@ -886,7 +860,7 @@ async function getMusicPlaylistInfo(playlist) {
 
 module.exports = {
   "platform": "汽水音乐",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "author": "Toskysun",
   "appVersion": ">0.1.0-alpha.0",
   "srcUrl": "https://musicfree-plugins.netlify.app/plugins/qishui.js",
