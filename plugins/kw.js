@@ -5,6 +5,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = require("axios");
 const he = require("he");
 const pageSize = 30;
+const BASE_SUPPORTED_QUALITIES = ["128k", "320k", "flac"];
+
+function ensureQualities(qualities) {
+  // 获取当前源下发的 supportedQualities（由订阅层覆盖）
+  const declared = module.exports && Array.isArray(module.exports.supportedQualities)
+    ? module.exports.supportedQualities
+    : BASE_SUPPORTED_QUALITIES;
+
+  const parsed = qualities && typeof qualities === "object" ? qualities : {};
+
+  // 只保留订阅层声明支持的音质，同时为声明支持但歌曲未解析到的音质补空占位
+  const result = {};
+  for (const q of declared) {
+    result[q] = parsed[q] || {};
+  }
+
+  return result;
+}
 
 function artworkShort2Long(albumpicShort) {
   var _a;
@@ -80,6 +98,34 @@ function parseKuWoQualityInfo(nMInfo) {
       const bitrateNum = parseInt(bitrate);
 
       switch (bitrateNum) {
+        case 20900:
+          qualities['master'] = {
+            size: size.toUpperCase(),
+            bitrate: 2304000,
+            format: format
+          };
+          break;
+        case 20501:
+          qualities['atmos_plus'] = {
+            size: size.toUpperCase(),
+            bitrate: 1411000,
+            format: format
+          };
+          break;
+        case 20201:
+          qualities['atmos'] = {
+            size: size.toUpperCase(),
+            bitrate: 1411000,
+            format: format
+          };
+          break;
+        case 4000:
+          qualities['hires'] = {
+            size: size.toUpperCase(),
+            bitrate: 2304000,
+            format: format
+          };
+          break;
         case 2000:
           qualities['flac'] = {
             size: size.toUpperCase(),
@@ -118,12 +164,7 @@ function formatMusicItem(_) {
   }
 
   // 如果没有解析到音质信息，提供基础音质作为降级方案
-  if (Object.keys(qualities).length === 0) {
-    const supportedQualities = ['128k', '320k', 'flac'];
-    supportedQualities.forEach(quality => {
-      qualities[quality] = {};
-    });
-  }
+  qualities = ensureQualities(qualities);
 
   // 保存完整的歌手信息列表，用于歌手详情跳转
   // 酷我音乐通常只有单个歌手信息
@@ -144,7 +185,7 @@ function formatMusicItem(_) {
     artistId: _.ARTISTID,
     formats: _.FORMATS,
     duration: _.DURATION,
-    qualities: qualities,
+    qualities: ensureQualities(qualities),
     nMInfo: _.N_MINFO, // 保留原始信息用于调试
   };
 }
@@ -324,15 +365,10 @@ async function getArtistMusicWorks(artistItem, page) {
   ).data;
   const songs = res.musiclist.map((_) => {
     // Parse quality info from n_minfo or N_MINFO field
-    const qualities = parseKuWoQualityInfo(_.n_minfo || _.N_MINFO) || {};
+    const qualities = parseKuWoQualityInfo(_.n_minfo || _.N_MINFO);
 
     // Provide fallback qualities if parsing failed
-    if (Object.keys(qualities).length === 0) {
-      const supportedQualities = ['128k', '320k', 'flac'];
-      supportedQualities.forEach(quality => {
-        qualities[quality] = {};
-      });
-    }
+    const normalizedQualities = ensureQualities(qualities);
 
     return {
       id: _.musicrid,
@@ -343,7 +379,7 @@ async function getArtistMusicWorks(artistItem, page) {
       albumId: _.albumid,
       artistId: _.artistid,
       formats: _.formats,
-      qualities: qualities,
+      qualities: normalizedQualities,
       nMInfo: _.n_minfo || _.N_MINFO,
     };
   });
@@ -621,15 +657,10 @@ async function getAlbumInfo(albumItem) {
     var _a;
 
     // Parse quality info from n_minfo or N_MINFO field
-    const qualities = parseKuWoQualityInfo(_.n_minfo || _.N_MINFO) || {};
+    const qualities = parseKuWoQualityInfo(_.n_minfo || _.N_MINFO);
 
     // Provide fallback qualities if parsing failed
-    if (Object.keys(qualities).length === 0) {
-      const supportedQualities = ['128k', '320k', 'flac'];
-      supportedQualities.forEach(quality => {
-        qualities[quality] = {};
-      });
-    }
+    const normalizedQualities = ensureQualities(qualities);
 
     return {
       id: _.id,
@@ -641,7 +672,7 @@ async function getAlbumInfo(albumItem) {
       albumId: albumItem.id,
       artistId: _.artistid,
       formats: _.formats,
-      qualities: qualities,
+      qualities: normalizedQualities,
       nMInfo: _.n_minfo || _.N_MINFO,
     };
   });
@@ -697,19 +728,12 @@ function getTopListDetail(topListItem) {
           getPicByRid(rid),
           getQualityByMusicId(_.id, _.name, _.artist)
         ]).then(([artwork, qualities]) => {
+          const normalizedQualities = ensureQualities(qualities);
           // Fallback to other artwork sources if pic server fails
           if (!artwork) {
             artwork = _.albumpic
               ? _.albumpic.replace('/120/', '/500/')
               : (_.pic || artworkShort2Long(_.web_albumpic_short));
-          }
-
-          // If no qualities retrieved, provide default
-          if (Object.keys(qualities).length === 0) {
-            const supportedQualities = ['128k', '320k', 'flac'];
-            supportedQualities.forEach(quality => {
-              qualities[quality] = {};
-            });
           }
 
           return {
@@ -721,7 +745,7 @@ function getTopListDetail(topListItem) {
             albumId: _.albumid,
             artistId: _.artistid,
             formats: _.formats,
-            qualities: qualities,
+            qualities: normalizedQualities,
           };
         });
       })
@@ -911,19 +935,12 @@ function getMusicSheetInfo(sheet, page) {
           getPicByRid(rid),
           getQualityByMusicId(_.id, _.name, _.artist)
         ]).then(([artwork, qualities]) => {
+          const normalizedQualities = ensureQualities(qualities);
           // Fallback to other artwork sources if pic server fails
           if (!artwork) {
             artwork = _.albumpic
               ? _.albumpic.replace('/120/', '/500/')
               : (_.pic || artworkShort2Long(_.web_albumpic_short));
-          }
-
-          // If no qualities retrieved, provide default
-          if (Object.keys(qualities).length === 0) {
-            const supportedQualities = ['128k', '320k', 'flac'];
-            supportedQualities.forEach(quality => {
-              qualities[quality] = {};
-            });
           }
 
           return {
@@ -935,7 +952,7 @@ function getMusicSheetInfo(sheet, page) {
             albumId: _.albumid,
             artistId: _.artistid,
             formats: _.formats,
-            qualities: qualities,
+            qualities: normalizedQualities,
           };
         });
       })
@@ -957,30 +974,32 @@ async function getMediaSource(musicItem, quality) {
     
     console.log(`[酷我] 获取播放链接，歌曲ID: ${songId}, 音质: ${quality}`);
     
-    // 检查音质信息
-    if (musicItem.qualities && Object.keys(musicItem.qualities).length > 0) {
-      // 如果歌曲不支持请求的音质，降级到可用音质
-      if (!musicItem.qualities[quality]) {
-        const availableQualities = Object.keys(musicItem.qualities);
-        if (availableQualities.length > 0) {
-          // 降级到可用的最高音质
-          if (availableQualities.includes('flac')) {
-            quality = 'flac';
-          } else if (availableQualities.includes('320k')) {
-            quality = '320k';
-          } else {
-            quality = availableQualities[0];
-          }
-          console.log(`[酷我] 歌曲不支持请求的音质，降级到 ${quality}`);
+    const requestedQuality = quality;
+    const songQualities = ensureQualities(musicItem.qualities);
+
+    // 如果歌曲明确不支持请求的音质，降级到可用的最高音质
+    if (!songQualities[quality]) {
+      const availableQualities = Object.keys(songQualities);
+      if (availableQualities.length > 0) {
+        if (availableQualities.includes('flac')) {
+          quality = 'flac';
+        } else if (availableQualities.includes('320k')) {
+          quality = '320k';
+        } else {
+          quality = availableQualities[0];
         }
+        console.log(`[酷我] 歌曲不支持请求的音质 ${requestedQuality}，降级到 ${quality}`);
       }
     }
     
-    // 映射音质参数 - 最高支持到FLAC
+    // 映射音质参数
     const qualityMap = {
       '128k': '128k',
       '320k': '320k',
-      'flac': 'flac'
+      'flac': 'flac',
+      'atmos': 'atmos',
+      'atmos_plus': 'atmos_plus',
+      'master': 'master'
     };
     
     const qualityParam = qualityMap[quality] || quality;
@@ -1067,10 +1086,11 @@ async function getMusicInfo(musicBase) {
 
     // 如果没有获取到音质信息，提供基础音质作为降级方案
     if (Object.keys(qualities).length === 0) {
-      qualities = { '128k': {}, '320k': {} };
-      if (info.hasLossless) {
-        qualities['flac'] = {};
-      }
+      qualities = ensureQualities({
+        '128k': {},
+        '320k': {},
+        ...(info.hasLossless ? { flac: {} } : {}),
+      });
     }
 
     // 优先使用pic服务器的高清封面
@@ -1093,7 +1113,7 @@ async function getMusicInfo(musicBase) {
       albumId: info.albumId,
       artwork: artwork,
       duration: info.duration,
-      qualities: qualities,
+      qualities: ensureQualities(qualities),
       platform: '酷我音乐',
     };
   } catch (error) {
@@ -1162,11 +1182,11 @@ async function getMusicComments(musicItem, page = 1) {
 module.exports = {
   platform: "酷我音乐",
   author: "Toskysun",
-  version: "0.2.7",
+  version: "0.2.8",
   appVersion: ">0.1.0-alpha.0",
   srcUrl: UPDATE_URL,
   cacheControl: "no-cache",
-  // 声明插件支持的音质列表（最高到FLAC）
+  // 声明插件支持的音质列表（具体可用音质可由订阅侧覆盖）
   supportedQualities: ["128k", "320k", "flac"],
   hints: {
     importMusicSheet: [

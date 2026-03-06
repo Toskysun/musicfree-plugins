@@ -33,7 +33,7 @@ const SOURCE_CONFIG = {
       'wy.js':  null,
       'qq.js':  null,
       'kg.js':  null,
-      'kw.js':  null,
+      'kw.js':  ['128k', '320k', 'flac', 'atmos', 'atmos_plus', 'master'],
     }
     // 不支持: mg.js (咪咕)
   },
